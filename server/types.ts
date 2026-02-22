@@ -1,9 +1,12 @@
 export enum SocketEvents {
   Disconnect = "disconnect",
   Connection = "connection",
+
+  CreateRoom = "create-room",
+  RoomCreated = "room-created",
+
   JoinRoom = "join-room",
   UserJoined = "user-joined",
-  CreateRoom = "create-room",
   RoomNotFound = "room-not-found",
 
   ReciveMessage = "recive-message",
@@ -11,6 +14,19 @@ export enum SocketEvents {
 
   HealthCheck = "health-check",
 }
+
+export type TSuccessResponse<T> = {
+  success: true;
+  message: string;
+  data: T;
+};
+
+export type TErrorResponse = {
+  success: false;
+  message: string;
+};
+
+export type TBaseApiResponse<T> = TSuccessResponse<T> | TErrorResponse;
 
 export type TUser = {
   id: string;
@@ -40,6 +56,7 @@ export type ClientToServerEvents = {
 };
 
 export type ServerToClientEvents = {
+  [SocketEvents.RoomCreated]: (room: TRoom) => void;
   [SocketEvents.ReciveMessage]: (message: TMessage) => void;
   [SocketEvents.UserJoined]: (room: TRoom) => void;
   [SocketEvents.RoomNotFound]: (roomCode: string) => void;

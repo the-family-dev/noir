@@ -8,12 +8,11 @@ import {
   TRoom,
 } from "./types";
 import { generateCode } from "../utils/code-generaator";
+import { rooms } from "./data";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = process.env.HOSTNAME || "localhost";
 const port = parseInt(process.env.PORT || "3000", 10);
-
-const rooms = new Map<string, TRoom>();
 
 // Инициализация Next.js
 const app = next({ dev, hostname, port });
@@ -67,7 +66,7 @@ app.prepare().then(() => {
 
       socket.join(roomCode);
 
-      io.to(roomCode).emit(SocketEvents.UserJoined, room);
+      io.to(socket.id).emit(SocketEvents.RoomCreated, room);
     });
 
     socket.on(SocketEvents.Disconnect, (reson) => {

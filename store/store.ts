@@ -1,6 +1,6 @@
 "use-client";
 import { makeAutoObservable } from "mobx";
-import { SocketEvents } from "@/server/types";
+import { SocketEvents, TMessage } from "@/server/types";
 import { socket } from "@/lib/socket";
 
 export enum LoginType {
@@ -14,8 +14,33 @@ type TLoginForm = {
   type: LoginType;
 };
 
+type TChat = {
+  inputMessage: string;
+  messages: TMessage[];
+};
+
 class Store {
   loginForm: TLoginForm = this._getLoginFormDefaultState();
+  chat: TChat = {
+    inputMessage: "",
+    messages: [
+      {
+        content: "test",
+        sender: {
+          id: "asfdasefsdfgsed",
+          name: "Ivan",
+        },
+      },
+      {
+        content:
+          "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        sender: {
+          id: "asfdasefsdfgsed",
+          name: "Ivan",
+        },
+      },
+    ],
+  };
 
   constructor() {
     makeAutoObservable(this);
@@ -26,6 +51,14 @@ class Store {
     value: TLoginForm[K],
   ) {
     this.loginForm[field] = value;
+  }
+
+  public setChatMessage(message: string) {
+    this.chat.inputMessage = message;
+  }
+
+  public sendMessage() {
+    store.chat.inputMessage = "";
   }
 
   public joinRoom() {
@@ -39,7 +72,7 @@ class Store {
     this.loginForm = this._getLoginFormDefaultState();
   }
 
-  public createRoom() {
+  public async createRoom() {
     const { userName } = this.loginForm;
 
     socket.emit(SocketEvents.CreateRoom, userName);
@@ -52,6 +85,13 @@ class Store {
       userName: "",
       roomCode: "",
       type: LoginType.Join,
+    };
+  }
+
+  private _getChatDefaultState(): TChat {
+    return {
+      inputMessage: "",
+      messages: [],
     };
   }
 }
