@@ -5,11 +5,15 @@ import {
   ClientToServerEvents,
   ServerToClientEvents,
   SocketEvents,
+  TRoom,
 } from "./types";
+import { generateCode } from "../utils/code-generaator";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = process.env.HOSTNAME || "localhost";
 const port = parseInt(process.env.PORT || "3000", 10);
+
+const rooms = new Map<string, TRoom>();
 
 // Инициализация Next.js
 const app = next({ dev, hostname, port });
@@ -23,20 +27,47 @@ app.prepare().then(() => {
     console.log("user connected ", socket.id);
 
     socket.on(SocketEvents.JoinRoom, (params) => {
-      console.log("join", params);
+      console.log(SocketEvents.JoinRoom, params);
       const { userName, roomCode } = params;
 
-      socket.join(roomCode);
+      const room = rooms.get(roomCode);
 
-      io.to(roomCode).emit(SocketEvents.UserJoined, {
+      if (room === undefined) {
+        io.to(socket.id).emit(SocketEvents.RoomNotFound, roomCode);
+        return;
+      }
+
+      room.users.push({
+        id: socket.id,
+        name: userName,
+      });
+
+      socket.join(room.roomCode);
+
+      io.to(room.roomCode).emit(SocketEvents.UserJoined, room);
+    });
+
+    socket.on(SocketEvents.CreateRoom, (userName) => {
+      console.log(SocketEvents.CreateRoom, userName);
+
+      const roomCode = generateCode(4);
+
+      const room: TRoom = {
         roomCode,
         users: [
           {
             id: socket.id,
             name: userName,
+            isAdmin: true,
           },
         ],
-      });
+      };
+
+      rooms.set(roomCode, room);
+
+      socket.join(roomCode);
+
+      io.to(roomCode).emit(SocketEvents.UserJoined, room);
     });
 
     socket.on(SocketEvents.Disconnect, (reson) => {

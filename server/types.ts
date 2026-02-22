@@ -4,6 +4,7 @@ export enum SocketEvents {
   JoinRoom = "join-room",
   UserJoined = "user-joined",
   CreateRoom = "create-room",
+  RoomNotFound = "room-not-found",
 
   ReciveMessage = "recive-message",
   SendMesage = "send-message",
@@ -41,4 +42,5 @@ export type ClientToServerEvents = {
 export type ServerToClientEvents = {
   [SocketEvents.ReciveMessage]: (message: TMessage) => void;
   [SocketEvents.UserJoined]: (room: TRoom) => void;
+  [SocketEvents.RoomNotFound]: (roomCode: string) => void;
 };

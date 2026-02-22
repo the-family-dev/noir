@@ -29,14 +29,20 @@ class Store {
   }
 
   public joinRoom() {
-    console.log("joinHandler");
-
     const { userName, roomCode } = this.loginForm;
 
     socket.emit(SocketEvents.JoinRoom, {
       userName,
       roomCode,
     });
+
+    this.loginForm = this._getLoginFormDefaultState();
+  }
+
+  public createRoom() {
+    const { userName } = this.loginForm;
+
+    socket.emit(SocketEvents.CreateRoom, userName);
 
     this.loginForm = this._getLoginFormDefaultState();
   }
