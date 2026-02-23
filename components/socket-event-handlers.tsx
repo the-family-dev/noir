@@ -3,27 +3,30 @@ import { observer } from "mobx-react-lite";
 import { useEffect } from "react";
 import { SocketEvents } from "@/server/types";
 import { socket } from "@/lib/socket";
-import { useRouter } from "next/navigation";
+import { store } from "../store/store";
 
 export const SocketEventsHandler = observer(function SocketEventsHandler() {
-  const router = useRouter();
-
   console.log("socket handler rendered");
   useEffect(() => {
     socket.on(SocketEvents.RoomCreated, (room) => {
       console.log(SocketEvents.RoomCreated, room);
 
-      const { roomCode } = room;
-
-      router.push(`/game/${roomCode}`);
+      store.setRoom(room);
     });
 
     socket.on(SocketEvents.ReciveMessage, (message) => {
-      console.log(message);
+      store.reciveMessage(message);
+    });
+
+    socket.on(SocketEvents.MyUserJoined, (user) => {
+      console.log(SocketEvents.MyUserJoined, { user });
+      store.setUser(user);
     });
 
     socket.on(SocketEvents.UserJoined, (room) => {
-      console.log(room);
+      console.log(SocketEvents.UserJoined, room);
+
+      store.setRoom(room);
     });
 
     return () => {

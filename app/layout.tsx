@@ -12,8 +12,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html className="dark" lang="ru">
-      <body>
+    <html className="dark h-full" lang="ru">
+      <body className="flex h-full items-center justify-center relative p-4">
         {children}
         <SocketEventsHandler />
       </body>

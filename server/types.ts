@@ -7,12 +7,14 @@ export enum SocketEvents {
 
   JoinRoom = "join-room",
   UserJoined = "user-joined",
+  MyUserJoined = "my-user-joined",
   RoomNotFound = "room-not-found",
 
   ReciveMessage = "recive-message",
-  SendMesage = "send-message",
+  SendMessage = "send-message",
 
   HealthCheck = "health-check",
+  ConnectionsCount = "connections-count",
 }
 
 export type TSuccessResponse<T> = {
@@ -53,6 +55,13 @@ export type ClientToServerEvents = {
     userName: string;
   }) => void;
   [SocketEvents.CreateRoom]: (userName: string) => void;
+  [SocketEvents.SendMessage]: ({
+    roomCode,
+    message,
+  }: {
+    roomCode: string;
+    message: TMessage;
+  }) => void;
 };
 
 export type ServerToClientEvents = {
@@ -60,4 +69,5 @@ export type ServerToClientEvents = {
   [SocketEvents.ReciveMessage]: (message: TMessage) => void;
   [SocketEvents.UserJoined]: (room: TRoom) => void;
   [SocketEvents.RoomNotFound]: (roomCode: string) => void;
+  [SocketEvents.MyUserJoined]: (user: TUser) => void;
 };

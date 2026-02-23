@@ -6,6 +6,7 @@ import {
   ServerToClientEvents,
   SocketEvents,
   TRoom,
+  TUser,
 } from "./types";
 import { generateCode } from "../utils/code-generaator";
 import { rooms } from "./data";
@@ -25,6 +26,10 @@ app.prepare().then(() => {
   io.on(SocketEvents.Connection, (socket) => {
     console.log("user connected ", socket.id);
 
+    socket.on(SocketEvents.SendMessage, (params) => {
+      io.to(params.roomCode).emit(SocketEvents.ReciveMessage, params.message);
+    });
+
     socket.on(SocketEvents.JoinRoom, (params) => {
       console.log(SocketEvents.JoinRoom, params);
       const { userName, roomCode } = params;
@@ -36,12 +41,16 @@ app.prepare().then(() => {
         return;
       }
 
-      room.users.push({
+      const newUser: TUser = {
         id: socket.id,
         name: userName,
-      });
+      };
+
+      room.users.push(newUser);
 
       socket.join(room.roomCode);
+
+      io.to(socket.id).emit(SocketEvents.MyUserJoined, newUser);
 
       io.to(room.roomCode).emit(SocketEvents.UserJoined, room);
     });
@@ -51,20 +60,22 @@ app.prepare().then(() => {
 
       const roomCode = generateCode(4);
 
+      const newUser: TUser = {
+        id: socket.id,
+        name: userName,
+        isAdmin: true,
+      };
+
       const room: TRoom = {
         roomCode,
-        users: [
-          {
-            id: socket.id,
-            name: userName,
-            isAdmin: true,
-          },
-        ],
+        users: [newUser],
       };
 
       rooms.set(roomCode, room);
 
       socket.join(roomCode);
+
+      io.to(socket.id).emit(SocketEvents.MyUserJoined, newUser);
 
       io.to(socket.id).emit(SocketEvents.RoomCreated, room);
     });

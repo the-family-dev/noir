@@ -1,7 +1,9 @@
 "use-client";
 import { makeAutoObservable } from "mobx";
-import { SocketEvents, TMessage } from "@/server/types";
+import { SocketEvents, TMessage, TRoom, TUser } from "@/server/types";
 import { socket } from "@/lib/socket";
+import { TypedStorage } from "../utils/storage";
+import { useRouter } from "next/navigation";
 
 export enum LoginType {
   Join = "join",
@@ -23,24 +25,14 @@ class Store {
   loginForm: TLoginForm = this._getLoginFormDefaultState();
   chat: TChat = {
     inputMessage: "",
-    messages: [
-      {
-        content: "test",
-        sender: {
-          id: "asfdasefsdfgsed",
-          name: "Ivan",
-        },
-      },
-      {
-        content:
-          "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-        sender: {
-          id: "asfdasefsdfgsed",
-          name: "Ivan",
-        },
-      },
-    ],
+    messages: [],
   };
+
+  room: TRoom | undefined = undefined;
+
+  user: TUser | undefined = undefined;
+
+  router: ReturnType<typeof useRouter> | undefined = undefined;
 
   constructor() {
     makeAutoObservable(this);
@@ -58,7 +50,37 @@ class Store {
   }
 
   public sendMessage() {
-    store.chat.inputMessage = "";
+    if (this.room === undefined) return;
+
+    if (this.user === undefined) return;
+
+    if (this.chat.inputMessage.trim() === "") return;
+
+    socket.emit(SocketEvents.SendMessage, {
+      roomCode: this.room.roomCode,
+      message: {
+        content: this.chat.inputMessage,
+        sender: this.user,
+      },
+    });
+
+    this.chat.inputMessage = "";
+  }
+
+  public reciveMessage(message: TMessage) {
+    this.chat.messages.push(message);
+  }
+
+  public setRoom(room: TRoom) {
+    this.room = room;
+  }
+
+  public setRouter(router: ReturnType<typeof useRouter>) {
+    this.router = router;
+  }
+
+  public setUser(user: TUser) {
+    this.user = user;
   }
 
   public joinRoom() {
