@@ -21,12 +21,19 @@ type TChat = {
   messages: TMessage[];
 };
 
+const nameStorageKey = "nameKey";
+
 class Store {
   loginForm: TLoginForm = this._getLoginFormDefaultState();
   chat: TChat = {
     inputMessage: "",
     messages: [],
   };
+
+  private _nameStorage = new TypedStorage<string | undefined>(
+    nameStorageKey,
+    undefined,
+  );
 
   room: TRoom | undefined = undefined;
 
@@ -37,6 +44,8 @@ class Store {
   constructor() {
     makeAutoObservable(this);
   }
+
+  public getStoredName() {}
 
   public setLoginFormField<K extends keyof TLoginForm>(
     field: K,
