@@ -3,6 +3,7 @@ import { observer } from "mobx-react-lite";
 import { useRouter } from "next/navigation";
 import { LoginForm } from "@/components/login-form";
 import { Button } from "@/components/ui/button";
+import { store } from "@/store/store";
 
 export default observer(function Home() {
   const router = useRouter();
@@ -13,6 +14,7 @@ export default observer(function Home() {
       <Button
         variant="secondary"
         size="sm"
+        disabled={store.isEnteringRoom}
         onClick={() => router.push("/register")}
       >
         Сменить имя

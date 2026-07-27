@@ -46,7 +46,7 @@ export const RoomUserCard = observer<RoomUserCardProps>(function RoomUserCard({
           size="icon-sm"
           variant="destructive"
           aria-label="Исключить из комнаты"
-          onClick={() => store.kickUser(user.name)}
+          onClick={() => store.kickUser(user.sessionId)}
         >
           <UserXIcon className="size-4" />
         </Button>

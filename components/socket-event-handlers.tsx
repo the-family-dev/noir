@@ -2,7 +2,7 @@
 import { observer } from "mobx-react-lite";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect } from "react";
-import { SocketEvents } from "@/server/types";
+import { RoomErrorCode, SocketEvents } from "@/server/types";
 import { socket } from "@/lib/socket";
 import { store } from "@/store/store";
 import { toast } from "sonner";
@@ -50,18 +50,20 @@ export const SocketEventsHandler = observer(function SocketEventsHandler() {
 
     socket.on(SocketEvents.RoomUpdated, applyRoom);
 
-    socket.on(SocketEvents.AnyError, (message) => {
-      toast.error(message);
-      if (store.room) return;
+    socket.on(SocketEvents.AnyError, (error) => {
+      toast.error(error.message);
+      store.setEnteringRoom(false);
 
-      const activeCode = store.getActiveRoomCode();
-      if (message.includes("Сессия не найдена")) {
-        store.clearActiveRoom();
+      if (error.code === RoomErrorCode.NameTaken) {
+        store.router?.push("/register");
         return;
       }
+
+      if (store.room) return;
+
       if (
-        activeCode &&
-        message.includes(`Комната ${activeCode} не найдена`)
+        error.code === RoomErrorCode.SessionNotFound ||
+        error.code === RoomErrorCode.RoomNotFound
       ) {
         store.clearActiveRoom();
       }
@@ -72,14 +74,8 @@ export const SocketEventsHandler = observer(function SocketEventsHandler() {
       toast.warning("Вас исключили из комнаты");
     });
 
-    socket.on(SocketEvents.ReciveMessage, (message) => {
-      store.reciveMessage(message);
-    });
-
-    socket.on(SocketEvents.UserJoined, applyRoom);
-
-    socket.on(SocketEvents.UserReconnected, () => {
-      // RoomUpdated follows and applies room state
+    socket.on(SocketEvents.ReceiveMessage, (message) => {
+      store.receiveMessage(message);
     });
 
     if (socket.connected) {
@@ -92,9 +88,7 @@ export const SocketEventsHandler = observer(function SocketEventsHandler() {
       socket.off(SocketEvents.RoomUpdated);
       socket.off(SocketEvents.AnyError);
       socket.off(SocketEvents.UserKicked);
-      socket.off(SocketEvents.ReciveMessage);
-      socket.off(SocketEvents.UserJoined);
-      socket.off(SocketEvents.UserReconnected);
+      socket.off(SocketEvents.ReceiveMessage);
     };
   }, [router]);
 

@@ -60,6 +60,8 @@ class Store {
   fromPath: string | undefined = undefined;
   /** Blocks auto re-join after leave/kick until user intentionally joins again */
   suppressAutoJoin = false;
+  /** True while waiting for create/join room socket response */
+  isEnteringRoom = false;
 
   router: ReturnType<typeof useRouter> | undefined = undefined;
   pathname: ReturnType<typeof usePathname> | undefined = undefined;
@@ -93,18 +95,24 @@ class Store {
   public requestStoredName() {
     this.ensureSessionId();
 
-    const name = this._nameStorage.get();
+    const name = this._nameStorage.get()?.trim();
 
-    if (name === undefined) {
+    if (!name) {
+      this.userName = undefined;
       this.fromPath = this.pathname;
       this.router?.push("/register");
+      return;
     }
 
     this.userName = name;
   }
 
   public register() {
-    this._nameStorage.set(this.userName);
+    const name = this.userName?.trim();
+    if (!name) return;
+
+    this.userName = name;
+    this._nameStorage.set(name);
 
     const toPath = this.fromPath ? this.fromPath : "/";
 
@@ -147,13 +155,18 @@ class Store {
     this.chat.inputMessage = "";
   }
 
-  public reciveMessage(message: TMessage) {
+  public receiveMessage(message: TMessage) {
     this.chat.messages.push(message);
   }
 
   public setRoom(room: TRoom) {
     this.room = room;
+    this.isEnteringRoom = false;
     this._activeRoomCodeStorage.set(room.roomCode);
+  }
+
+  public setEnteringRoom(value: boolean) {
+    this.isEnteringRoom = value;
   }
 
   public getActiveRoomCode() {
@@ -194,12 +207,12 @@ class Store {
     this.router?.push("/");
   }
 
-  public kickUser(targetUserName: string) {
+  public kickUser(targetSessionId: string) {
     if (this.room === undefined) return;
 
     socket.emit(SocketEvents.KickUser, {
       roomCode: this.room.roomCode,
-      targetUserName,
+      targetSessionId,
     });
   }
 
@@ -208,16 +221,15 @@ class Store {
     const { userName } = this;
     const sessionId = this.ensureSessionId();
 
-    if (userName === undefined) return;
+    if (userName === undefined || this.isEnteringRoom) return;
 
     this.suppressAutoJoin = false;
+    this.isEnteringRoom = true;
     socket.emit(SocketEvents.JoinRoom, {
       userName,
       roomCode,
       sessionId,
     });
-
-    this.loginForm = this._getLoginFormDefaultState();
   }
 
   public joinRoomByLink(roomCode?: string) {
@@ -288,15 +300,14 @@ class Store {
     const { userName } = this;
     const sessionId = this.ensureSessionId();
 
-    if (userName === undefined) return;
+    if (userName === undefined || this.isEnteringRoom) return;
 
     this.suppressAutoJoin = false;
+    this.isEnteringRoom = true;
     socket.emit(SocketEvents.CreateRoom, {
       userName,
       sessionId,
     });
-
-    this.loginForm = this._getLoginFormDefaultState();
   }
 
   private _getLoginFormDefaultState(): TLoginForm {

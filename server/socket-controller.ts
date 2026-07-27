@@ -1,174 +1,130 @@
 import type { Server, Socket } from "socket.io";
 import {
   ClientToServerEvents,
+  RoomError,
   ServerToClientEvents,
   SocketEvents,
-  TUser,
+  TRoom,
 } from "./types";
 import { roomService } from "./room-service";
-import { logEvent } from "./log-service";
-import { isAdminSocket } from "@/utils/room-helpers";
 
-export function registerSocketHandlers(
-  io: Server<ClientToServerEvents, ServerToClientEvents>,
-  socket: Socket<ClientToServerEvents, ServerToClientEvents>,
-): void {
+type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
+type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
+
+function emitError(socket: AppSocket, error: RoomError) {
+  socket.emit(SocketEvents.AnyError, error);
+}
+
+function broadcastRoom(io: AppServer, room: TRoom) {
+  io.to(room.roomCode).emit(SocketEvents.RoomUpdated, room);
+}
+
+function detachSocketFromRoom(
+  io: AppServer,
+  socketId: string,
+  roomCode: string,
+) {
+  const target = io.sockets.sockets.get(socketId);
+  if (target) {
+    target.leave(roomCode);
+  }
+}
+
+export function registerSocketHandlers(io: AppServer, socket: AppSocket): void {
   socket.on(SocketEvents.SendMessage, (params) => {
-    io.to(params.roomCode).emit(SocketEvents.ReciveMessage, params.message);
+    io.to(params.roomCode).emit(SocketEvents.ReceiveMessage, params.message);
+  });
+
+  socket.on(SocketEvents.CreateRoom, (params) => {
+    const result = roomService.create({
+      name: params.userName,
+      sessionId: params.sessionId,
+      socketId: socket.id,
+    });
+
+    if (!result.ok) {
+      emitError(socket, result);
+      return;
+    }
+
+    socket.join(result.room.roomCode);
+    socket.emit(SocketEvents.RoomCreated, result.room);
+  });
+
+  socket.on(SocketEvents.JoinRoom, (params) => {
+    const result = roomService.join({
+      roomCode: params.roomCode,
+      name: params.userName,
+      sessionId: params.sessionId,
+      socketId: socket.id,
+    });
+
+    if (!result.ok) {
+      emitError(socket, result);
+      return;
+    }
+
+    socket.join(result.room.roomCode);
+
+    if (result.reconnected) {
+      socket.emit(SocketEvents.UserReconnected, result.member);
+    }
+
+    broadcastRoom(io, result.room);
+  });
+
+  socket.on(SocketEvents.ReconnectRoom, (params) => {
+    const result = roomService.reconnect({
+      roomCode: params.roomCode,
+      sessionId: params.sessionId,
+      socketId: socket.id,
+    });
+
+    if (!result.ok) {
+      emitError(socket, result);
+      return;
+    }
+
+    socket.join(result.room.roomCode);
+    socket.emit(SocketEvents.UserReconnected, result.member);
+    broadcastRoom(io, result.room);
   });
 
   socket.on(SocketEvents.LeaveRoom, (roomCode) => {
-    logEvent(SocketEvents.LeaveRoom, roomCode);
+    const result = roomService.leave(roomCode, socket.id);
+    if (!result.ok) return;
 
-    const room = roomService.getRoom(roomCode);
-    if (room === undefined) return;
+    socket.leave(roomCode);
 
-    roomService.removeMember(room, (m) => m.socketId === socket.id);
-    socket.leave(room.roomCode);
-    roomService.deleteRoomIfEmpty(room.roomCode);
-
-    if (roomService.getRoom(room.roomCode)) {
-      io.to(room.roomCode).emit(SocketEvents.RoomUpdated, room);
+    if (result.room) {
+      broadcastRoom(io, result.room);
     }
   });
 
   socket.on(SocketEvents.KickUser, (params) => {
-    const { roomCode, targetUserName } = params;
-    const room = roomService.getRoom(roomCode);
+    const result = roomService.kick({
+      roomCode: params.roomCode,
+      adminSocketId: socket.id,
+      targetSessionId: params.targetSessionId,
+    });
 
-    if (room === undefined) return;
-
-    if (!isAdminSocket(room, socket.id)) {
-      io.to(socket.id).emit(
-        SocketEvents.AnyError,
-        "Только администратор может исключить участника",
-      );
+    if (!result.ok) {
+      emitError(socket, result);
       return;
     }
 
-    const removed = roomService.removeMember(
-      room,
-      (m) => m.name === targetUserName,
-    );
+    detachSocketFromRoom(io, result.removed.socketId, params.roomCode);
+    io.to(result.removed.socketId).emit(SocketEvents.UserKicked);
 
-    if (removed === undefined) return;
-
-    const kickedSocket = io.sockets.sockets.get(removed.socketId);
-    if (kickedSocket) {
-      kickedSocket.leave(room.roomCode);
+    if (result.room) {
+      broadcastRoom(io, result.room);
     }
-
-    io.to(removed.socketId).emit(SocketEvents.UserKicked);
-
-    if (roomService.getRoom(room.roomCode)) {
-      io.to(room.roomCode).emit(SocketEvents.RoomUpdated, room);
-    }
-
-    roomService.deleteRoomIfEmpty(room.roomCode);
-  });
-
-  socket.on(SocketEvents.ReconnectRoom, (params) => {
-    const { roomCode, sessionId } = params;
-    const room = roomService.getRoom(roomCode);
-
-    if (room === undefined) {
-      io.to(socket.id).emit(
-        SocketEvents.AnyError,
-        `Комната ${roomCode} не найдена`,
-      );
-      return;
-    }
-
-    const member = roomService.reconnectMember(room, sessionId, socket.id);
-
-    if (member === undefined) {
-      io.to(socket.id).emit(
-        SocketEvents.AnyError,
-        "Сессия не найдена в этой комнате",
-      );
-      return;
-    }
-
-    socket.join(room.roomCode);
-    io.to(socket.id).emit(SocketEvents.UserReconnected, member);
-    io.to(room.roomCode).emit(SocketEvents.RoomUpdated, room);
-  });
-
-  socket.on(SocketEvents.JoinRoom, (params) => {
-    const { userName, roomCode, sessionId } = params;
-    const room = roomService.getRoom(roomCode);
-
-    if (room === undefined) {
-      io.to(socket.id).emit(
-        SocketEvents.AnyError,
-        `Комната ${roomCode} не найдена`,
-      );
-      return;
-    }
-
-    const bySession = roomService.findMemberBySessionId(room, sessionId);
-
-    if (bySession) {
-      roomService.reconnectMember(room, sessionId, socket.id);
-      socket.join(room.roomCode);
-      io.to(socket.id).emit(SocketEvents.UserReconnected, bySession);
-      io.to(room.roomCode).emit(SocketEvents.RoomUpdated, room);
-      return;
-    }
-
-    const byName = roomService.findMemberByName(room, userName);
-
-    if (byName && !byName.disconnected) {
-      io.to(socket.id).emit(
-        SocketEvents.AnyError,
-        `Пользователь с именем ${byName.name} уже существует`,
-      );
-      return;
-    }
-
-    if (byName && byName.disconnected) {
-      io.to(socket.id).emit(
-        SocketEvents.AnyError,
-        `Пользователь с именем ${byName.name} уже существует`,
-      );
-      return;
-    }
-
-    const newUser: TUser = {
-      socketId: socket.id,
-      sessionId,
-      name: userName,
-    };
-
-    room.members.push(newUser);
-    socket.join(room.roomCode);
-
-    io.to(socket.id).emit(SocketEvents.MyUserJoined, newUser);
-    io.to(room.roomCode).emit(SocketEvents.UserJoined, room);
-  });
-
-  socket.on(SocketEvents.CreateRoom, (params) => {
-    const { userName, sessionId } = params;
-
-    const newUser: TUser = {
-      socketId: socket.id,
-      sessionId,
-      name: userName,
-      isAdmin: true,
-    };
-
-    const room = roomService.createRoom(newUser);
-
-    socket.join(room.roomCode);
-
-    io.to(socket.id).emit(SocketEvents.MyUserJoined, newUser);
-    io.to(socket.id).emit(SocketEvents.RoomCreated, room);
   });
 
   socket.on(SocketEvents.Disconnect, () => {
-    const room = roomService.markDisconnected(socket.id);
-    if (room === undefined) return;
+    const found = roomService.disconnect(socket.id);
+    if (found === undefined) return;
 
-    io.to(room.roomCode).emit(SocketEvents.RoomUpdated, room);
+    broadcastRoom(io, found.room);
   });
 }
