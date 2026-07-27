@@ -2,6 +2,8 @@
 
 Realtime lobby for the Noir game: create/join rooms, chat, reconnect via `sessionId`.
 
+<!-- identity check commit -->
+
 ## Dev
 
 ```bash
