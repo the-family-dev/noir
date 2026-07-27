@@ -1,6 +1,7 @@
 "use client";
 import { Chat } from "@/components/chat";
 import { GameBoard } from "@/components/game-board";
+import { StartGamePanel } from "@/components/start-game-panel";
 import { observer } from "mobx-react-lite";
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
@@ -60,12 +61,12 @@ export default observer(function Game() {
     );
   }
 
-  const showBoard = room.game.phase !== GamePhase.Preparation;
+  const isPreparation = room.game.phase === GamePhase.Preparation;
 
   return (
     <div className="flex flex-row gap-4 h-full w-full min-h-0 relative">
       <div className="flex-1 min-w-0 flex items-center justify-center">
-        {showBoard ? <GameBoard /> : null}
+        {isPreparation ? <StartGamePanel /> : <GameBoard />}
       </div>
       <Chat />
     </div>

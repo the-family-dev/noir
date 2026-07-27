@@ -12,6 +12,9 @@ export enum SocketEvents {
   KickUser = "kick-user",
   UserKicked = "user-kicked",
 
+  StartGame = "start-game",
+  EndTurn = "end-turn",
+
   AnyError = "any-error",
 
   RoomUpdated = "room-updated",
@@ -26,6 +29,10 @@ export enum RoomErrorCode {
   NameTaken = "NAME_TAKEN",
   NotAdmin = "NOT_ADMIN",
   MemberNotFound = "MEMBER_NOT_FOUND",
+  GameAlreadyStarted = "GAME_ALREADY_STARTED",
+  NotEnoughPlayers = "NOT_ENOUGH_PLAYERS",
+  InvalidPhase = "INVALID_PHASE",
+  NotYourTurn = "NOT_YOUR_TURN",
 }
 
 export type RoomError = {
@@ -60,10 +67,24 @@ export enum GamePhase {
   Finished = "finished",
 }
 
+export type BoardCharacter = {
+  id: string;
+  name: string;
+};
+
 export type NoirGameState = {
   phase: GamePhase;
   /** Длина стороны квадратного поля (например, 5 → 5×5) */
   boardSize: number;
+  /** Карточки на поле; пусто на подготовке */
+  board: BoardCharacter[];
+  /**
+   * sessionId → id персонажа.
+   * На клиент уходит только своя запись (чужие личности скрыты).
+   */
+  assignments: Record<string, string>;
+  /** sessionId игрока, чей сейчас ход; null вне фазы игры */
+  currentTurnSessionId: string | null;
 };
 
 export type TRoom = {
@@ -95,6 +116,8 @@ export type ClientToServerEvents = {
     roomCode: string;
     targetSessionId: string;
   }) => void;
+  [SocketEvents.StartGame]: (params: { roomCode: string }) => void;
+  [SocketEvents.EndTurn]: (params: { roomCode: string }) => void;
 };
 
 export type ServerToClientEvents = {

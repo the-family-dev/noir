@@ -1,9 +1,14 @@
 import { generateCode } from "@/utils/code-generator";
 import {
+  advanceTurnToNext,
+  buildPlayingGameState,
   createInitialNoirGameState,
+  ensureValidCurrentTurn,
+  MIN_PLAYERS_TO_START,
   syncPreparationBoardSize,
 } from "@/utils/noir-game";
 import {
+  GamePhase,
   RoomErrorCode,
   RoomFail,
   RoomResult,
@@ -31,6 +36,16 @@ type KickParams = {
   roomCode: string;
   adminSocketId: string;
   targetSessionId: string;
+};
+
+type StartGameParams = {
+  roomCode: string;
+  adminSocketId: string;
+};
+
+type EndTurnParams = {
+  roomCode: string;
+  socketId: string;
 };
 
 class RoomService {
@@ -70,6 +85,13 @@ class RoomService {
     if (bySession) {
       this.applyReconnect(bySession, params.socketId);
       return { ok: true, room, member: bySession, reconnected: true };
+    }
+
+    if (room.game.phase !== GamePhase.Preparation) {
+      return this.fail(
+        RoomErrorCode.GameAlreadyStarted,
+        "Игра уже началась, присоединиться нельзя",
+      );
     }
 
     const name = params.name.trim();
@@ -137,6 +159,7 @@ class RoomService {
 
     this.transferAdminIfNeeded(room);
     this.refreshPreparationBoard(room);
+    this.fixTurnAfterMemberChange(room, removed.sessionId);
     const remaining = this.deleteRoomIfEmpty(room.roomCode);
     return { ok: true, room: remaining, removed };
   }
@@ -172,8 +195,87 @@ class RoomService {
 
     this.transferAdminIfNeeded(room);
     this.refreshPreparationBoard(room);
+    this.fixTurnAfterMemberChange(room, removed.sessionId);
     const remaining = this.deleteRoomIfEmpty(room.roomCode);
     return { ok: true, room: remaining, removed };
+  }
+
+  startGame(params: StartGameParams): RoomResult<{ room: TRoom }> {
+    const room = this.rooms.get(params.roomCode);
+    if (room === undefined) {
+      return this.fail(
+        RoomErrorCode.RoomNotFound,
+        `Комната ${params.roomCode} не найдена`,
+      );
+    }
+
+    if (!this.isAdminSocket(room, params.adminSocketId)) {
+      return this.fail(
+        RoomErrorCode.NotAdmin,
+        "Только администратор может начать игру",
+      );
+    }
+
+    if (room.game.phase !== GamePhase.Preparation) {
+      return this.fail(
+        RoomErrorCode.InvalidPhase,
+        "Игру можно начать только на этапе подготовки",
+      );
+    }
+
+    if (room.members.length < MIN_PLAYERS_TO_START) {
+      return this.fail(
+        RoomErrorCode.NotEnoughPlayers,
+        `Нужно минимум ${MIN_PLAYERS_TO_START} игрока`,
+      );
+    }
+
+    const boardSize = room.game.boardSize;
+    const cellCount = boardSize * boardSize;
+    if (room.members.length > cellCount) {
+      return this.fail(
+        RoomErrorCode.NotEnoughPlayers,
+        "Игроков больше, чем карточек на поле",
+      );
+    }
+
+    room.game = buildPlayingGameState(boardSize, room.members);
+    return { ok: true, room };
+  }
+
+  endTurn(params: EndTurnParams): RoomResult<{ room: TRoom }> {
+    const room = this.rooms.get(params.roomCode);
+    if (room === undefined) {
+      return this.fail(
+        RoomErrorCode.RoomNotFound,
+        `Комната ${params.roomCode} не найдена`,
+      );
+    }
+
+    if (room.game.phase !== GamePhase.Playing) {
+      return this.fail(
+        RoomErrorCode.InvalidPhase,
+        "Завершить ход можно только во время игры",
+      );
+    }
+
+    const member = room.members.find((m) => m.socketId === params.socketId);
+    if (member === undefined) {
+      return this.fail(
+        RoomErrorCode.MemberNotFound,
+        "Участник не найден в комнате",
+      );
+    }
+
+    if (room.game.currentTurnSessionId !== member.sessionId) {
+      return this.fail(
+        RoomErrorCode.NotYourTurn,
+        "Сейчас не ваш ход",
+      );
+    }
+
+    room.game = advanceTurnToNext(room.game, room.members);
+    return { ok: true, room };
   }
 
   disconnect(socketId: string): { room: TRoom; member: TUser } | undefined {
@@ -268,6 +370,14 @@ class RoomService {
 
   private refreshPreparationBoard(room: TRoom) {
     room.game = syncPreparationBoardSize(room.game, room.members.length);
+  }
+
+  private fixTurnAfterMemberChange(room: TRoom, removedSessionId: string) {
+    room.game = ensureValidCurrentTurn(
+      room.game,
+      room.members,
+      removedSessionId,
+    );
   }
 
   private fail(code: RoomErrorCode, message: string): RoomFail {

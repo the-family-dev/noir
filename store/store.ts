@@ -82,6 +82,18 @@ class Store {
     return this.room.members.find((m) => m.sessionId === this.sessionId);
   }
 
+  get isMyTurn(): boolean {
+    if (this.room === undefined || this.sessionId === undefined) return false;
+    return this.room.game.currentTurnSessionId === this.sessionId;
+  }
+
+  get currentTurnPlayer(): TUser | undefined {
+    if (this.room === undefined) return undefined;
+    const turnId = this.room.game.currentTurnSessionId;
+    if (turnId === null) return undefined;
+    return this.room.members.find((m) => m.sessionId === turnId);
+  }
+
   public ensureSessionId() {
     let sessionId = this._sessionIdStorage.get();
     if (sessionId === undefined) {
@@ -213,6 +225,24 @@ class Store {
     socket.emit(SocketEvents.KickUser, {
       roomCode: this.room.roomCode,
       targetSessionId,
+    });
+  }
+
+  public startGame() {
+    if (this.room === undefined) return;
+    if (!this.isAdmin) return;
+
+    socket.emit(SocketEvents.StartGame, {
+      roomCode: this.room.roomCode,
+    });
+  }
+
+  public endTurn() {
+    if (this.room === undefined) return;
+    if (!this.isMyTurn) return;
+
+    socket.emit(SocketEvents.EndTurn, {
+      roomCode: this.room.roomCode,
     });
   }
 

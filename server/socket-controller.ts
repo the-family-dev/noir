@@ -7,6 +7,7 @@ import {
   TRoom,
 } from "./types";
 import { roomService } from "./room-service";
+import { sanitizeRoomForSession } from "@/utils/noir-game";
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -15,8 +16,26 @@ function emitError(socket: AppSocket, error: RoomError) {
   socket.emit(SocketEvents.AnyError, error);
 }
 
+/** Рассылает комнату каждому участнику с его личной раздачей */
 function broadcastRoom(io: AppServer, room: TRoom) {
-  io.to(room.roomCode).emit(SocketEvents.RoomUpdated, room);
+  for (const member of room.members) {
+    if (member.disconnected) continue;
+    const target = io.sockets.sockets.get(member.socketId);
+    if (!target) continue;
+    target.emit(
+      SocketEvents.RoomUpdated,
+      sanitizeRoomForSession(room, member.sessionId),
+    );
+  }
+}
+
+function emitRoomToSocket(
+  socket: AppSocket,
+  room: TRoom,
+  sessionId: string,
+  event: SocketEvents.RoomCreated | SocketEvents.RoomUpdated,
+) {
+  socket.emit(event, sanitizeRoomForSession(room, sessionId));
 }
 
 function detachSocketFromRoom(
@@ -48,7 +67,12 @@ export function registerSocketHandlers(io: AppServer, socket: AppSocket): void {
     }
 
     socket.join(result.room.roomCode);
-    socket.emit(SocketEvents.RoomCreated, result.room);
+    emitRoomToSocket(
+      socket,
+      result.room,
+      params.sessionId,
+      SocketEvents.RoomCreated,
+    );
   });
 
   socket.on(SocketEvents.JoinRoom, (params) => {
@@ -119,6 +143,34 @@ export function registerSocketHandlers(io: AppServer, socket: AppSocket): void {
     if (result.room) {
       broadcastRoom(io, result.room);
     }
+  });
+
+  socket.on(SocketEvents.StartGame, (params) => {
+    const result = roomService.startGame({
+      roomCode: params.roomCode,
+      adminSocketId: socket.id,
+    });
+
+    if (!result.ok) {
+      emitError(socket, result);
+      return;
+    }
+
+    broadcastRoom(io, result.room);
+  });
+
+  socket.on(SocketEvents.EndTurn, (params) => {
+    const result = roomService.endTurn({
+      roomCode: params.roomCode,
+      socketId: socket.id,
+    });
+
+    if (!result.ok) {
+      emitError(socket, result);
+      return;
+    }
+
+    broadcastRoom(io, result.room);
   });
 
   socket.on(SocketEvents.Disconnect, () => {
