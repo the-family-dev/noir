@@ -1,5 +1,9 @@
 import { generateCode } from "@/utils/code-generator";
 import {
+  createInitialNoirGameState,
+  syncPreparationBoardSize,
+} from "@/utils/noir-game";
+import {
   RoomErrorCode,
   RoomFail,
   RoomResult,
@@ -44,6 +48,7 @@ class RoomService {
     const room: TRoom = {
       roomCode: this.ensureUniqueCode(),
       members: [member],
+      game: createInitialNoirGameState(1),
     };
 
     this.rooms.set(room.roomCode, room);
@@ -83,6 +88,7 @@ class RoomService {
     };
 
     room.members.push(member);
+    this.refreshPreparationBoard(room);
     return { ok: true, room, member, reconnected: false };
   }
 
@@ -130,6 +136,7 @@ class RoomService {
     }
 
     this.transferAdminIfNeeded(room);
+    this.refreshPreparationBoard(room);
     const remaining = this.deleteRoomIfEmpty(room.roomCode);
     return { ok: true, room: remaining, removed };
   }
@@ -164,6 +171,7 @@ class RoomService {
     }
 
     this.transferAdminIfNeeded(room);
+    this.refreshPreparationBoard(room);
     const remaining = this.deleteRoomIfEmpty(room.roomCode);
     return { ok: true, room: remaining, removed };
   }
@@ -256,6 +264,10 @@ class RoomService {
     }
 
     return room;
+  }
+
+  private refreshPreparationBoard(room: TRoom) {
+    room.game = syncPreparationBoardSize(room.game, room.members.length);
   }
 
   private fail(code: RoomErrorCode, message: string): RoomFail {

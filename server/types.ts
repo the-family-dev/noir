@@ -50,9 +50,26 @@ export type TMessage = {
   sender: string;
 };
 
+/** Этапы матча Noir внутри комнаты */
+export enum GamePhase {
+  /** Игроки заходят; размер поля зависит от их числа */
+  Preparation = "preparation",
+  /** Поочерёдная игра на поле (действия — позже) */
+  Playing = "playing",
+  /** Итоги и победитель (подсчёт — позже) */
+  Finished = "finished",
+}
+
+export type NoirGameState = {
+  phase: GamePhase;
+  /** Длина стороны квадратного поля (например, 5 → 5×5) */
+  boardSize: number;
+};
+
 export type TRoom = {
   roomCode: string;
   members: TUser[];
+  game: NoirGameState;
 };
 
 export type ClientToServerEvents = {

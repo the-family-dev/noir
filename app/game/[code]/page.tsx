@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import { store } from "@/store/store";
 import { Button } from "@/components/ui/button";
+import { GamePhase } from "@/server/types";
 
 export default observer(function Game() {
   const { userName, room, suppressAutoJoin } = store;
@@ -59,10 +60,12 @@ export default observer(function Game() {
     );
   }
 
+  const showBoard = room.game.phase !== GamePhase.Preparation;
+
   return (
     <div className="flex flex-row gap-4 h-full w-full min-h-0 relative">
       <div className="flex-1 min-w-0 flex items-center justify-center">
-        <GameBoard />
+        {showBoard ? <GameBoard /> : null}
       </div>
       <Chat />
     </div>

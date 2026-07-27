@@ -18,7 +18,7 @@ export const SocketEventsHandler = observer(function SocketEventsHandler() {
 
   useLayoutEffect(() => {
     store.requestStoredName();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- bootstrap once
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- однократная инициализация
   }, []);
 
   useEffect(() => {

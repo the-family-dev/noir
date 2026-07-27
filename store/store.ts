@@ -58,9 +58,9 @@ class Store {
   sessionId: string | undefined = undefined;
   room: TRoom | undefined = undefined;
   fromPath: string | undefined = undefined;
-  /** Blocks auto re-join after leave/kick until user intentionally joins again */
+  /** Блокирует авто-вход после выхода/кика, пока пользователь сам не зайдёт снова */
   suppressAutoJoin = false;
-  /** True while waiting for create/join room socket response */
+  /** true, пока ждём ответ сокета на создание/вход в комнату */
   isEnteringRoom = false;
 
   router: ReturnType<typeof useRouter> | undefined = undefined;
@@ -264,7 +264,7 @@ class Store {
     return true;
   }
 
-  /** Try reconnect if we have an active room session; otherwise join by code. */
+  /** Переподключение при активной сессии комнаты, иначе вход по коду */
   public enterRoom(roomCode: string) {
     if (this.suppressAutoJoin) return;
     if (this.room) return;
