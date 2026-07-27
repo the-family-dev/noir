@@ -1,5 +1,5 @@
 {
-  "name": "board-games",
+  "name": "noir",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,9 +7,9 @@
     "build": "node scripts/write-build-info.cjs && cross-env NODE_ENV=production next build && tsc --project tsconfig.server.json && tsc-alias -p tsconfig.server.json",
     "start": "cross-env NODE_ENV=production node dist/server/server.js",
     "pm2:start": "pm2 start ecosystem.config.cjs",
-    "pm2:stop": "pm2 stop board-games",
-    "pm2:restart": "pm2 restart board-games --update-env",
-    "pm2:delete": "pm2 delete board-games",
+    "pm2:stop": "pm2 stop noir",
+    "pm2:restart": "pm2 restart noir --update-env",
+    "pm2:delete": "pm2 delete noir",
     "lint": "eslint"
   },
   "dependencies": {

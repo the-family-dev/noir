@@ -24,7 +24,7 @@ export const LoginForm = observer(() => {
 
   return (
     <div className="w-full max-w-md rounded-3xl border p-6 flex flex-col gap-4">
-      <div className="text-3xl font-bold text-center pb-2">Board Games</div>
+      <div className="text-3xl font-bold text-center pb-2">Noir</div>
       <Tabs
         value={type}
         onValueChange={(key) =>

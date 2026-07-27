@@ -1,6 +1,6 @@
-# Board Games
+# Noir
 
-Realtime lobby for board games: create/join rooms, chat, reconnect via `sessionId`.
+Realtime lobby for the Noir game: create/join rooms, chat, reconnect via `sessionId`.
 
 ## Dev
 

@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: "board-games",
+      name: "noir",
       script: "dist/server/server.js",
       instances: 1,
       exec_mode: "fork",

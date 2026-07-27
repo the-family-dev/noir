@@ -13,7 +13,7 @@ npm ci
 echo ">>> npm run build..."
 npm run build
 
-echo ">>> pm2 restart who-i-am..."
-pm2 restart who-i-am --update-env
+echo ">>> pm2 restart noir..."
+pm2 restart noir --update-env
 
 echo ">>> deploy done"
