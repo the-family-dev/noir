@@ -1,11 +1,11 @@
 "use client";
 import { Chat } from "@/components/chat";
+import { GameBoard } from "@/components/game-board";
 import { observer } from "mobx-react-lite";
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import { store } from "@/store/store";
 import { Button } from "@/components/ui/button";
-import { RoomUserCard } from "@/components/room-user-card";
 
 export default observer(function Game() {
   const { userName, room, suppressAutoJoin } = store;
@@ -60,14 +60,9 @@ export default observer(function Game() {
   }
 
   return (
-    <div className="flex flex-row gap-4 h-full w-full justify-between relative">
-      <div className="flex flex-col gap-4 flex-1 min-w-0">
-        <h2 className="text-lg font-semibold">Участники</h2>
-        <div className="flex flex-col gap-2 max-w-md">
-          {room.members.map((user) => (
-            <RoomUserCard key={user.sessionId} user={user} />
-          ))}
-        </div>
+    <div className="flex flex-row gap-4 h-full w-full min-h-0 relative">
+      <div className="flex-1 min-w-0 flex items-center justify-center">
+        <GameBoard />
       </div>
       <Chat />
     </div>

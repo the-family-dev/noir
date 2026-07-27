@@ -1,0 +1,45 @@
+---
+description: Pure helpers and shared non-UI logic belong in utils/
+alwaysApply: true
+---
+
+# Utils extraction
+
+Put reusable pure helpers and shared non-UI logic in [`utils/`](utils/), not inside React components or pages.
+
+## What belongs in `utils/`
+
+- String/number/date formatting and parsing (e.g. `getMonogram`)
+- Pure transforms (shuffle, pick, id generation)
+- Storage/key helpers, room code helpers, constants
+- Anything with no JSX and no React hooks that can be reused or unit-tested alone
+
+## What stays in the component
+
+- Rendering, event handlers wired to UI, local UI state
+- Thin wrappers that only call utils and pass props
+
+## Conventions
+
+- One focused module per concern: `utils/monogram.ts`, `utils/room-helpers.ts`
+- Import via `@/utils/...`
+- Prefer named exports
+- Do not put shadcn/`cn` helpers here — those stay in `@/lib/utils`
+
+```typescript
+// ❌ BAD — helper buried in a component file
+function getMonogram(name: string) { /* ... */ }
+
+export function CharacterCard() {
+  const monogram = getMonogram(character.name);
+  // ...
+}
+
+// ✅ GOOD — helper in utils, component only renders
+import { getMonogram } from "@/utils/monogram";
+
+export function CharacterCard() {
+  const monogram = getMonogram(character.name);
+  // ...
+}
+```
