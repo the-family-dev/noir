@@ -1,0 +1,317 @@
+"use client";
+import { makeAutoObservable } from "mobx";
+import { SocketEvents, TMessage, TRoom, TUser } from "@/server/types";
+import { socket } from "@/lib/socket";
+import { TypedStorage } from "@/utils/storage";
+import {
+  activeRoomCodeStorageKey,
+  nameStorageKey,
+  sessionIdStorageKey,
+} from "@/utils/constants";
+import { usePathname, useRouter } from "next/navigation";
+
+export enum LoginType {
+  Join = "join",
+  Create = "create",
+}
+
+type TLoginForm = {
+  roomCode: string;
+  type: LoginType;
+};
+
+type TChat = {
+  inputMessage: string;
+  messages: TMessage[];
+};
+
+function createSessionId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+class Store {
+  loginForm: TLoginForm = this._getLoginFormDefaultState();
+  chat: TChat = {
+    inputMessage: "",
+    messages: [],
+  };
+
+  private _nameStorage = new TypedStorage<string | undefined>(
+    nameStorageKey,
+    undefined,
+  );
+
+  private _sessionIdStorage = new TypedStorage<string | undefined>(
+    sessionIdStorageKey,
+    undefined,
+  );
+
+  private _activeRoomCodeStorage = new TypedStorage<string | undefined>(
+    activeRoomCodeStorageKey,
+    undefined,
+  );
+
+  userName: string | undefined = undefined;
+  sessionId: string | undefined = undefined;
+  room: TRoom | undefined = undefined;
+  fromPath: string | undefined = undefined;
+  /** Blocks auto re-join after leave/kick until user intentionally joins again */
+  suppressAutoJoin = false;
+
+  router: ReturnType<typeof useRouter> | undefined = undefined;
+  pathname: ReturnType<typeof usePathname> | undefined = undefined;
+
+  constructor() {
+    makeAutoObservable(this);
+  }
+
+  get isAdmin() {
+    if (this.room === undefined || this.sessionId === undefined) return false;
+    return this.room.members.some(
+      (user) => user.sessionId === this.sessionId && user.isAdmin === true,
+    );
+  }
+
+  get me(): TUser | undefined {
+    if (this.room === undefined || this.sessionId === undefined) return undefined;
+    return this.room.members.find((m) => m.sessionId === this.sessionId);
+  }
+
+  public ensureSessionId() {
+    let sessionId = this._sessionIdStorage.get();
+    if (sessionId === undefined) {
+      sessionId = createSessionId();
+      this._sessionIdStorage.set(sessionId);
+    }
+    this.sessionId = sessionId;
+    return sessionId;
+  }
+
+  public requestStoredName() {
+    this.ensureSessionId();
+
+    const name = this._nameStorage.get();
+
+    if (name === undefined) {
+      this.fromPath = this.pathname;
+      this.router?.push("/register");
+    }
+
+    this.userName = name;
+  }
+
+  public register() {
+    this._nameStorage.set(this.userName);
+
+    const toPath = this.fromPath ? this.fromPath : "/";
+
+    if (this.fromPath) {
+      this.joinRoomByLink(this.fromPath.split("/").at(-1));
+    }
+
+    this.router?.push(toPath);
+    this.fromPath = undefined;
+  }
+
+  public setName(name: string) {
+    this.userName = name;
+  }
+
+  public setLoginFormField<K extends keyof TLoginForm>(
+    field: K,
+    value: TLoginForm[K],
+  ) {
+    this.loginForm[field] = value;
+  }
+
+  public setChatMessage(message: string) {
+    this.chat.inputMessage = message;
+  }
+
+  public sendMessage() {
+    if (this.room === undefined) return;
+    if (this.userName === undefined) return;
+    if (this.chat.inputMessage.trim() === "") return;
+
+    socket.emit(SocketEvents.SendMessage, {
+      roomCode: this.room.roomCode,
+      message: {
+        content: this.chat.inputMessage,
+        sender: this.userName,
+      },
+    });
+
+    this.chat.inputMessage = "";
+  }
+
+  public reciveMessage(message: TMessage) {
+    this.chat.messages.push(message);
+  }
+
+  public setRoom(room: TRoom) {
+    this.room = room;
+    this._activeRoomCodeStorage.set(room.roomCode);
+  }
+
+  public getActiveRoomCode() {
+    return this._activeRoomCodeStorage.get();
+  }
+
+  public isMemberOf(room: TRoom) {
+    if (this.sessionId === undefined) return false;
+    return room.members.some((m) => m.sessionId === this.sessionId);
+  }
+
+  public clearActiveRoom() {
+    this.room = undefined;
+    this.chat = this._getChatDefaultState();
+    this._activeRoomCodeStorage.remove();
+  }
+
+  public setRouter(router: ReturnType<typeof useRouter>) {
+    this.router = router;
+  }
+
+  public setPathname(pathname: ReturnType<typeof usePathname>) {
+    this.pathname = pathname;
+  }
+
+  public leaveRoom() {
+    if (this.room === undefined) return;
+
+    this.suppressAutoJoin = true;
+    socket.emit(SocketEvents.LeaveRoom, this.room.roomCode);
+    this.clearActiveRoom();
+    this.router?.push("/");
+  }
+
+  public handleKicked() {
+    this.suppressAutoJoin = true;
+    this.clearActiveRoom();
+    this.router?.push("/");
+  }
+
+  public kickUser(targetUserName: string) {
+    if (this.room === undefined) return;
+
+    socket.emit(SocketEvents.KickUser, {
+      roomCode: this.room.roomCode,
+      targetUserName,
+    });
+  }
+
+  public joinRoom() {
+    const { roomCode } = this.loginForm;
+    const { userName } = this;
+    const sessionId = this.ensureSessionId();
+
+    if (userName === undefined) return;
+
+    this.suppressAutoJoin = false;
+    socket.emit(SocketEvents.JoinRoom, {
+      userName,
+      roomCode,
+      sessionId,
+    });
+
+    this.loginForm = this._getLoginFormDefaultState();
+  }
+
+  public joinRoomByLink(roomCode?: string) {
+    if (this.room) return;
+
+    const { userName } = this;
+    const sessionId = this.ensureSessionId();
+
+    if (userName === undefined || roomCode === undefined) return;
+
+    this.suppressAutoJoin = false;
+    socket.emit(SocketEvents.JoinRoom, {
+      userName,
+      roomCode,
+      sessionId,
+    });
+  }
+
+  public reconnectToRoom(roomCode?: string) {
+    if (this.suppressAutoJoin) return false;
+
+    const code = roomCode ?? this._activeRoomCodeStorage.get();
+    const sessionId = this.ensureSessionId();
+
+    if (code === undefined) return false;
+
+    socket.emit(SocketEvents.ReconnectRoom, {
+      roomCode: code,
+      sessionId,
+    });
+
+    return true;
+  }
+
+  /** Try reconnect if we have an active room session; otherwise join by code. */
+  public enterRoom(roomCode: string) {
+    if (this.suppressAutoJoin) return;
+    if (this.room) return;
+
+    const sessionId = this.ensureSessionId();
+    if (this.userName === undefined) return;
+
+    const activeCode = this._activeRoomCodeStorage.get();
+
+    if (activeCode === roomCode) {
+      this.reconnectToRoom(roomCode);
+      return;
+    }
+
+    socket.emit(SocketEvents.JoinRoom, {
+      userName: this.userName,
+      roomCode,
+      sessionId,
+    });
+  }
+
+  public tryAutoReconnect() {
+    if (this.suppressAutoJoin) return;
+    if (this.room) return;
+
+    const activeCode = this._activeRoomCodeStorage.get();
+    if (activeCode === undefined) return;
+
+    this.reconnectToRoom(activeCode);
+  }
+
+  public createRoom() {
+    const { userName } = this;
+    const sessionId = this.ensureSessionId();
+
+    if (userName === undefined) return;
+
+    this.suppressAutoJoin = false;
+    socket.emit(SocketEvents.CreateRoom, {
+      userName,
+      sessionId,
+    });
+
+    this.loginForm = this._getLoginFormDefaultState();
+  }
+
+  private _getLoginFormDefaultState(): TLoginForm {
+    return {
+      roomCode: "",
+      type: LoginType.Join,
+    };
+  }
+
+  private _getChatDefaultState(): TChat {
+    return {
+      inputMessage: "",
+      messages: [],
+    };
+  }
+}
+
+export const store = new Store();

@@ -1,0 +1,14 @@
+---
+description: Use shadcn/ui components for UI
+alwaysApply: true
+---
+
+# shadcn/ui
+
+This project uses **shadcn/ui** (Base UI / Nova style) with Tailwind CSS.
+
+- Prefer components from `@/components/ui/*` (e.g. `Button`, `Input`, `Tabs`, `DropdownMenu`, `Popover`, `ScrollArea`).
+- Use `cn` from `@/lib/utils` for className merging.
+- Toasts via `sonner` (`toast` from `sonner`, `<Toaster />` from `@/components/ui/sonner`).
+- Icons from `lucide-react`.
+- Follow patterns in the [shadcn docs](https://ui.shadcn.com/).
