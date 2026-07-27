@@ -173,6 +173,21 @@ export function registerSocketHandlers(io: AppServer, socket: AppSocket): void {
     broadcastRoom(io, result.room);
   });
 
+  socket.on(SocketEvents.ShiftBoard, (params) => {
+    const result = roomService.shiftBoard({
+      roomCode: params.roomCode,
+      socketId: socket.id,
+      shift: params.shift,
+    });
+
+    if (!result.ok) {
+      emitError(socket, result);
+      return;
+    }
+
+    broadcastRoom(io, result.room);
+  });
+
   socket.on(SocketEvents.Disconnect, () => {
     const found = roomService.disconnect(socket.id);
     if (found === undefined) return;

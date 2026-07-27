@@ -1,6 +1,13 @@
 "use client";
 import { makeAutoObservable } from "mobx";
-import { SocketEvents, TMessage, TRoom, TUser } from "@/server/types";
+import {
+  SocketEvents,
+  TMessage,
+  TRoom,
+  TUser,
+  BoardShift,
+  BoardCharacter,
+} from "@/server/types";
 import { socket } from "@/lib/socket";
 import { TypedStorage } from "@/utils/storage";
 import {
@@ -8,6 +15,11 @@ import {
   nameStorageKey,
   sessionIdStorageKey,
 } from "@/utils/constants";
+import {
+  boardsEqual,
+  detectBoardShift,
+  shiftBoardCharacters,
+} from "@/utils/board-shift";
 import { usePathname, useRouter } from "next/navigation";
 
 export enum LoginType {
@@ -24,6 +36,18 @@ type TChat = {
   inputMessage: string;
   messages: TMessage[];
 };
+
+/** Активная анимация сдвига поля */
+export type BoardShiftAnimation = {
+  seq: number;
+  shift: BoardShift;
+  boardBefore: BoardCharacter[];
+  boardAfter: BoardCharacter[];
+  boardSize: number;
+};
+
+/** Локальный seq до ответа сервера */
+export const LOCAL_BOARD_SHIFT_SEQ = -1;
 
 function createSessionId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -62,6 +86,10 @@ class Store {
   suppressAutoJoin = false;
   /** true, пока ждём ответ сокета на создание/вход в комнату */
   isEnteringRoom = false;
+  /** Текущая анимация сдвига (общая для всех клиентов) */
+  boardShiftAnim: BoardShiftAnimation | null = null;
+
+  private lastPlayedShiftSeq = 0;
 
   router: ReturnType<typeof useRouter> | undefined = undefined;
   pathname: ReturnType<typeof usePathname> | undefined = undefined;
@@ -172,9 +200,25 @@ class Store {
   }
 
   public setRoom(room: TRoom) {
+    const previousBoard = this.room?.game.board;
+
     this.room = room;
     this.isEnteringRoom = false;
     this._activeRoomCodeStorage.set(room.roomCode);
+
+    // RoomUpdated обновляет состояние; анимацию запускаем отдельно
+    if (
+      previousBoard &&
+      previousBoard.length > 0 &&
+      room.game.board.length > 0 &&
+      !boardsEqual(previousBoard, room.game.board)
+    ) {
+      this.animateShift(
+        previousBoard,
+        room.game.board,
+        room.game.lastBoardShift ?? undefined,
+      );
+    }
   }
 
   public setEnteringRoom(value: boolean) {
@@ -193,6 +237,8 @@ class Store {
   public clearActiveRoom() {
     this.room = undefined;
     this.chat = this._getChatDefaultState();
+    this.boardShiftAnim = null;
+    this.lastPlayedShiftSeq = 0;
     this._activeRoomCodeStorage.remove();
   }
 
@@ -244,6 +290,95 @@ class Store {
     socket.emit(SocketEvents.EndTurn, {
       roomCode: this.room.roomCode,
     });
+  }
+
+  public shiftBoard(shift: BoardShift) {
+    if (this.room === undefined) return;
+    if (!this.isMyTurn) return;
+    if (this.room.game.boardShiftUsedThisTurn) return;
+    if (this.boardShiftAnim !== null) return;
+
+    const boardBefore = this.room.game.board.map((c) => ({ ...c }));
+    const boardAfter = shiftBoardCharacters(
+      boardBefore,
+      this.room.game.boardSize,
+      shift,
+    );
+
+    // Оптимистичная анимация до ответа сервера
+    this.animateShift(boardBefore, boardAfter, {
+      ...shift,
+      seq: LOCAL_BOARD_SHIFT_SEQ,
+    });
+
+    socket.emit(SocketEvents.ShiftBoard, {
+      roomCode: this.room.roomCode,
+      shift,
+    });
+  }
+
+  /**
+   * Запускает анимацию сдвига по состояниям доски «до» и «после».
+   * RoomUpdated только меняет room; анимацией занимается эта функция.
+   */
+  public animateShift(
+    boardBefore: BoardCharacter[],
+    boardAfter: BoardCharacter[],
+    knownShift?: BoardShift & { seq?: number },
+  ) {
+    if (boardsEqual(boardBefore, boardAfter)) return;
+
+    const boardSize = Math.sqrt(boardBefore.length);
+    if (!Number.isInteger(boardSize) || boardSize <= 0) return;
+
+    // У инициатора уже крутится локальная анимация — только подтверждаем seq
+    if (
+      this.boardShiftAnim !== null &&
+      this.boardShiftAnim.seq === LOCAL_BOARD_SHIFT_SEQ
+    ) {
+      const seq = knownShift?.seq;
+      if (seq !== undefined && seq > 0) {
+        this.lastPlayedShiftSeq = seq;
+        this.boardShiftAnim = { ...this.boardShiftAnim, seq };
+      }
+      return;
+    }
+
+    if (this.boardShiftAnim !== null) return;
+
+    const detected =
+      knownShift ??
+      detectBoardShift(boardBefore, boardAfter, boardSize) ??
+      undefined;
+
+    if (detected === undefined) return;
+
+    const seq =
+      "seq" in detected && typeof detected.seq === "number"
+        ? detected.seq
+        : this.lastPlayedShiftSeq + 1;
+
+    if (seq > 0 && seq <= this.lastPlayedShiftSeq) return;
+
+    if (seq > 0) {
+      this.lastPlayedShiftSeq = seq;
+    }
+
+    this.boardShiftAnim = {
+      seq,
+      shift: {
+        axis: detected.axis,
+        index: detected.index,
+        direction: detected.direction,
+      },
+      boardBefore: boardBefore.map((c) => ({ ...c })),
+      boardAfter: boardAfter.map((c) => ({ ...c })),
+      boardSize,
+    };
+  }
+
+  public clearBoardShiftAnim() {
+    this.boardShiftAnim = null;
   }
 
   public joinRoom() {

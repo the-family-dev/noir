@@ -37,6 +37,8 @@ export function createInitialNoirGameState(
     board: [],
     assignments: {},
     currentTurnSessionId: null,
+    boardShiftUsedThisTurn: false,
+    lastBoardShift: null,
   };
 }
 
@@ -79,6 +81,8 @@ export function buildPlayingGameState(
     board,
     assignments,
     currentTurnSessionId: turnOrder[0] ?? null,
+    boardShiftUsedThisTurn: false,
+    lastBoardShift: null,
   };
 }
 
@@ -91,7 +95,11 @@ export function advanceTurnToNext(
   members: TUser[],
 ): NoirGameState {
   if (members.length === 0) {
-    return { ...game, currentTurnSessionId: null };
+    return {
+      ...game,
+      currentTurnSessionId: null,
+      boardShiftUsedThisTurn: false,
+    };
   }
 
   const order = members.map((m) => m.sessionId);
@@ -103,6 +111,8 @@ export function advanceTurnToNext(
   return {
     ...game,
     currentTurnSessionId: order[nextIndex] ?? null,
+    boardShiftUsedThisTurn: false,
+    lastBoardShift: null,
   };
 }
 
@@ -123,8 +133,7 @@ export function ensureValidCurrentTurn(
 
   if (stillValid) return game;
 
-  // Ушёл текущий — следующий после него в старом порядке уже недоступен,
-  // берём первого оставшегося (или после removed, если он был известен)
+  // Ушёл текущий — передаём ход первому оставшемуся
   if (
     removedSessionId &&
     game.currentTurnSessionId === removedSessionId
@@ -132,12 +141,16 @@ export function ensureValidCurrentTurn(
     return {
       ...game,
       currentTurnSessionId: members[0]?.sessionId ?? null,
+      boardShiftUsedThisTurn: false,
+      lastBoardShift: null,
     };
   }
 
   return {
     ...game,
     currentTurnSessionId: members[0]?.sessionId ?? null,
+    boardShiftUsedThisTurn: false,
+    lastBoardShift: null,
   };
 }
 
@@ -155,6 +168,9 @@ export function sanitizeRoomForSession(
       ...room.game,
       board: room.game.board.map((c) => ({ ...c })),
       assignments: selfId ? { [sessionId]: selfId } : {},
+      lastBoardShift: room.game.lastBoardShift
+        ? { ...room.game.lastBoardShift }
+        : null,
     },
   };
 }

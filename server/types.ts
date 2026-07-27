@@ -14,6 +14,7 @@ export enum SocketEvents {
 
   StartGame = "start-game",
   EndTurn = "end-turn",
+  ShiftBoard = "shift-board",
 
   AnyError = "any-error",
 
@@ -33,6 +34,8 @@ export enum RoomErrorCode {
   NotEnoughPlayers = "NOT_ENOUGH_PLAYERS",
   InvalidPhase = "INVALID_PHASE",
   NotYourTurn = "NOT_YOUR_TURN",
+  ActionAlreadyUsed = "ACTION_ALREADY_USED",
+  InvalidMove = "INVALID_MOVE",
 }
 
 export type RoomError = {
@@ -72,6 +75,15 @@ export type BoardCharacter = {
   name: string;
 };
 
+export type BoardShiftAxis = "row" | "column";
+export type BoardShiftDirection = "positive" | "negative";
+
+export type BoardShift = {
+  axis: BoardShiftAxis;
+  index: number;
+  direction: BoardShiftDirection;
+};
+
 export type NoirGameState = {
   phase: GamePhase;
   /** Длина стороны квадратного поля (например, 5 → 5×5) */
@@ -85,6 +97,10 @@ export type NoirGameState = {
   assignments: Record<string, string>;
   /** sessionId игрока, чей сейчас ход; null вне фазы игры */
   currentTurnSessionId: string | null;
+  /** Сдвиг поля уже сделан в этом ходу */
+  boardShiftUsedThisTurn: boolean;
+  /** Последний сдвиг — для анимации у клиентов */
+  lastBoardShift: (BoardShift & { seq: number }) | null;
 };
 
 export type TRoom = {
@@ -118,6 +134,10 @@ export type ClientToServerEvents = {
   }) => void;
   [SocketEvents.StartGame]: (params: { roomCode: string }) => void;
   [SocketEvents.EndTurn]: (params: { roomCode: string }) => void;
+  [SocketEvents.ShiftBoard]: (params: {
+    roomCode: string;
+    shift: BoardShift;
+  }) => void;
 };
 
 export type ServerToClientEvents = {

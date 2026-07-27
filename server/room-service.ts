@@ -1,5 +1,9 @@
 import { generateCode } from "@/utils/code-generator";
 import {
+  isValidBoardShift,
+  shiftBoardCharacters,
+} from "@/utils/board-shift";
+import {
   advanceTurnToNext,
   buildPlayingGameState,
   createInitialNoirGameState,
@@ -8,6 +12,7 @@ import {
   syncPreparationBoardSize,
 } from "@/utils/noir-game";
 import {
+  BoardShift,
   GamePhase,
   RoomErrorCode,
   RoomFail,
@@ -46,6 +51,12 @@ type StartGameParams = {
 type EndTurnParams = {
   roomCode: string;
   socketId: string;
+};
+
+type ShiftBoardParams = {
+  roomCode: string;
+  socketId: string;
+  shift: BoardShift;
 };
 
 class RoomService {
@@ -275,6 +286,62 @@ class RoomService {
     }
 
     room.game = advanceTurnToNext(room.game, room.members);
+    return { ok: true, room };
+  }
+
+  shiftBoard(params: ShiftBoardParams): RoomResult<{ room: TRoom }> {
+    const room = this.rooms.get(params.roomCode);
+    if (room === undefined) {
+      return this.fail(
+        RoomErrorCode.RoomNotFound,
+        `Комната ${params.roomCode} не найдена`,
+      );
+    }
+
+    if (room.game.phase !== GamePhase.Playing) {
+      return this.fail(
+        RoomErrorCode.InvalidPhase,
+        "Сдвигать поле можно только во время игры",
+      );
+    }
+
+    const member = room.members.find((m) => m.socketId === params.socketId);
+    if (member === undefined) {
+      return this.fail(
+        RoomErrorCode.MemberNotFound,
+        "Участник не найден в комнате",
+      );
+    }
+
+    if (room.game.currentTurnSessionId !== member.sessionId) {
+      return this.fail(RoomErrorCode.NotYourTurn, "Сейчас не ваш ход");
+    }
+
+    if (room.game.boardShiftUsedThisTurn) {
+      return this.fail(
+        RoomErrorCode.ActionAlreadyUsed,
+        "Сдвиг поля уже использован в этом ходу",
+      );
+    }
+
+    if (!isValidBoardShift(room.game.boardSize, params.shift)) {
+      return this.fail(RoomErrorCode.InvalidMove, "Некорректный сдвиг поля");
+    }
+
+    const seq = (room.game.lastBoardShift?.seq ?? 0) + 1;
+    const shift = { ...params.shift, seq };
+
+    room.game = {
+      ...room.game,
+      board: shiftBoardCharacters(
+        room.game.board,
+        room.game.boardSize,
+        params.shift,
+      ),
+      boardShiftUsedThisTurn: true,
+      lastBoardShift: shift,
+    };
+
     return { ok: true, room };
   }
 
