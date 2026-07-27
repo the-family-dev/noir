@@ -12,7 +12,7 @@ export const GameHeader = observer(() => {
       <NameLabel />
       <div className="flex flex-col items-center gap-1 flex-1">
         {room ? (
-          <p className="font-mono text-sm text-muted-foreground">
+          <p className="font-mono text-2xl font-semibold text-foreground">
             {room.roomCode}
           </p>
         ) : null}
