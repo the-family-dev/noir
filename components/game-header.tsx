@@ -1,6 +1,5 @@
 "use client";
 import { observer } from "mobx-react-lite";
-import { NameLabel } from "./name-label";
 import { RoomActions } from "./room-actions";
 import { GamePhaseIndicator } from "./game-phase-indicator";
 import { CurrentTurnIndicator } from "./current-turn-controls";
@@ -12,12 +11,11 @@ export const GameHeader = observer(() => {
   const isPlaying = room?.game.phase === GamePhase.Playing;
 
   return (
-    <div className="flex flex-row items-end justify-between w-full h-fit gap-4">
-      <NameLabel />
-      <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
+    <div className="flex flex-row items-center justify-between w-full h-fit gap-4">
+      <div className="flex min-w-0 flex-1 flex-row items-center gap-3">
         {room ? (
           <>
-            <p className="font-mono text-2xl font-semibold text-foreground">
+            <p className="font-mono text-2xl font-semibold text-foreground shrink-0">
               {room.roomCode}
             </p>
             <GamePhaseIndicator />
@@ -25,7 +23,9 @@ export const GameHeader = observer(() => {
           </>
         ) : null}
       </div>
-      <RoomActions />
+      <div className="flex shrink-0 justify-end">
+        <RoomActions />
+      </div>
     </div>
   );
 });

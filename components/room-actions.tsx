@@ -56,7 +56,7 @@ export const RoomActions = observer(function RoomActions() {
         data-chat-toggle
         aria-label={chat.isOpen ? "Свернуть чат" : "Открыть чат"}
         aria-pressed={chat.isOpen}
-        onClick={() => store.toggleChat()}
+        onClick={() => store.chat.toggle()}
       >
         <MessageCircleIcon className="size-5" />
       </Button>
@@ -67,7 +67,7 @@ export const RoomActions = observer(function RoomActions() {
         >
           <MoreVerticalIcon className="size-5" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-56">
+        <DropdownMenuContent side="bottom" align="end" className="min-w-56">
           <DropdownMenuGroup>
             <DropdownMenuLabel>Комната</DropdownMenuLabel>
             <DropdownMenuItem onClick={handleCopyCode}>

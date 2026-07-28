@@ -39,9 +39,12 @@ export function BoardShiftArrow({
           onClick={onClick}
           aria-label={label}
           className={cn(
-            "size-7 rounded-full opacity-0 shadow-sm transition-opacity duration-150",
-            "group-hover/arrow:opacity-100 focus-visible:opacity-100",
-            enabled ? "hover:opacity-100" : "pointer-events-none",
+            // disabled:opacity-0 перекрывает disabled:opacity-50 у Button —
+            // иначе вне хода все стрелки видны полупрозрачными
+            "size-7 rounded-full opacity-0 shadow-sm transition-opacity duration-150 disabled:opacity-0",
+            enabled
+              ? "group-hover/arrow:opacity-100 focus-visible:opacity-100 hover:opacity-100"
+              : "pointer-events-none",
           )}
         >
           {children}

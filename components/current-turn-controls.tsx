@@ -107,7 +107,7 @@ export const EndTurnButton = observer(function EndTurnButton() {
 
 /** Выбор обновления поля по строкам или по столбцам */
 export const RefreshBoardButton = observer(function RefreshBoardButton() {
-  const { isMyTurn, room, boardShiftAnim } = store;
+  const { isMyTurn, room } = store;
   if (!isMyTurn || room === undefined) {
     return (
       <Button
@@ -123,8 +123,7 @@ export const RefreshBoardButton = observer(function RefreshBoardButton() {
   }
 
   const { board, boardRows, boardCols } = room.game;
-  const canAct =
-    !isTurnActionUsed(room.game) && boardShiftAnim === null;
+  const canAct = !isTurnActionUsed(room.game);
   const canByRows =
     canAct && canRefreshBoard(board, boardRows, boardCols, "row");
   const canByCols =

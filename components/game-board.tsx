@@ -11,9 +11,7 @@ import { InterrogationReveal } from "@/components/interrogation-reveal";
 import { ShiftReveal } from "@/components/shift-reveal";
 import { BoardShift } from "@/server/types";
 import { store } from "@/store/store";
-import {
-  getLineCharacters,
-} from "@/utils/board-shift";
+import { getLineCharacters } from "@/utils/board-shift";
 import { canCatchTarget } from "@/utils/catch";
 import { canInterrogateTarget } from "@/utils/interrogation";
 import { isTurnActionUsed } from "@/utils/turn-action";
@@ -22,7 +20,7 @@ import { observer } from "mobx-react-lite";
 import { useMemo } from "react";
 
 export const GameBoard = observer(function GameBoard() {
-  const { room, sessionId, isMyTurn, boardShiftAnim } = store;
+  const { room, sessionId, isMyTurn } = store;
 
   const board = room?.game.board ?? [];
   const boardRows = room?.game.boardRows ?? 0;
@@ -41,29 +39,20 @@ export const GameBoard = observer(function GameBoard() {
   const selfCharacterId =
     sessionId !== undefined ? assignments[sessionId] : undefined;
 
-  const isShiftAnimating = boardShiftAnim !== null;
   const actionUsed = room !== undefined && isTurnActionUsed(room.game);
-  const canShift = isMyTurn && !actionUsed && !isShiftAnimating;
-  const canOpenCardMenu = isMyTurn && !actionUsed && !isShiftAnimating;
-
-  /** Во время анимации показываем кадр «до», иначе актуальное состояние комнаты */
-  const displayBoard = boardShiftAnim?.boardBefore ?? board;
-  const displayRows = boardShiftAnim?.boardRows ?? boardRows;
-  const displayCols = boardShiftAnim?.boardCols ?? boardCols;
-  const animating = boardShiftAnim
-    ? { ...boardShiftAnim.shift, seq: boardShiftAnim.seq }
-    : null;
+  const canShift = isMyTurn && !actionUsed;
+  const canOpenCardMenu = isMyTurn && !actionUsed;
 
   const interrogatableIds = useMemo(() => {
     const ids = new Set<string>();
     if (!canOpenCardMenu || selfCharacterId === undefined) return ids;
 
-    for (const character of displayBoard) {
+    for (const character of board) {
       if (
         canInterrogateTarget(
-          displayBoard,
-          displayRows,
-          displayCols,
+          board,
+          boardRows,
+          boardCols,
           selfCharacterId,
           character.id,
         )
@@ -72,24 +61,18 @@ export const GameBoard = observer(function GameBoard() {
       }
     }
     return ids;
-  }, [
-    canOpenCardMenu,
-    displayBoard,
-    displayRows,
-    displayCols,
-    selfCharacterId,
-  ]);
+  }, [canOpenCardMenu, board, boardRows, boardCols, selfCharacterId]);
 
   const catchableIds = useMemo(() => {
     const ids = new Set<string>();
     if (!canOpenCardMenu || selfCharacterId === undefined) return ids;
 
-    for (const character of displayBoard) {
+    for (const character of board) {
       if (
         canCatchTarget(
-          displayBoard,
-          displayRows,
-          displayCols,
+          board,
+          boardRows,
+          boardCols,
           selfCharacterId,
           character.id,
         )
@@ -98,13 +81,7 @@ export const GameBoard = observer(function GameBoard() {
       }
     }
     return ids;
-  }, [
-    canOpenCardMenu,
-    displayBoard,
-    displayRows,
-    displayCols,
-    selfCharacterId,
-  ]);
+  }, [canOpenCardMenu, board, boardRows, boardCols, selfCharacterId]);
 
   const highlightById = useMemo(() => {
     const map = new Map<string, CharacterCardHighlight>();
@@ -199,7 +176,7 @@ export const GameBoard = observer(function GameBoard() {
     );
   }, [lastBoardShift, members]);
 
-  if (room === undefined || displayBoard.length === 0) return null;
+  if (room === undefined || board.length === 0) return null;
 
   const handleShift = (shift: BoardShift) => {
     if (!canShift) return;
@@ -268,9 +245,9 @@ export const GameBoard = observer(function GameBoard() {
           </div>
         ) : null}
         <BoardGrid
-          board={displayBoard}
-          boardRows={displayRows}
-          boardCols={displayCols}
+          board={board}
+          boardRows={boardRows}
+          boardCols={boardCols}
           selfCharacterId={selfCharacterId}
           selfSessionId={sessionId}
           members={members}
@@ -279,11 +256,9 @@ export const GameBoard = observer(function GameBoard() {
           interrogatableIds={interrogatableIds}
           catchableIds={catchableIds}
           highlightById={highlightById}
-          animating={animating}
           onShift={handleShift}
           onInterrogate={handleInterrogate}
           onCatch={handleCatch}
-          onAnimComplete={() => store.clearBoardShiftAnim()}
         />
       </div>
 

@@ -4,10 +4,9 @@ import {
   CharacterCard,
   CharacterCardHighlight,
 } from "@/components/character-card";
-import { BoardLineCarousel } from "@/components/board-line-carousel";
 import { BoardShiftArrow } from "@/components/board-shift-arrow";
 import { BoardCharacter, BoardShift, TUser } from "@/server/types";
-import { BOARD_GAP, getLineCharacters } from "@/utils/board-shift";
+import { BOARD_GAP } from "@/utils/board-shift";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,12 +44,9 @@ export type BoardGridProps = {
   catchableIds: ReadonlySet<string>;
   /** Подсветка карточек во время допроса */
   highlightById: ReadonlyMap<string, CharacterCardHighlight>;
-  /** Активный сдвиг (карусель), иначе обычная сетка */
-  animating: (BoardShift & { seq: number }) | null;
   onShift: (shift: BoardShift) => void;
   onInterrogate: (targetCharacterId: string) => void;
   onCatch: (targetCharacterId: string, accusedSessionId: string) => void;
-  onAnimComplete: () => void;
 };
 
 function CharacterNameBadge({ name }: { name: string }) {
@@ -181,15 +177,11 @@ export function BoardGrid({
   interrogatableIds,
   catchableIds,
   highlightById,
-  animating,
   onShift,
   onInterrogate,
   onCatch,
-  onAnimComplete,
 }: BoardGridProps) {
   const gutter = "2.25rem";
-  const animCol = animating?.axis === "column" ? animating.index : null;
-  const animRow = animating?.axis === "row" ? animating.index : null;
   const catchCandidates = members.filter((m) => m.sessionId !== selfSessionId);
 
   const renderCard = (character: BoardCharacter, key: string) => {
@@ -281,49 +273,21 @@ export function BoardGrid({
               <ArrowLeftIcon className="size-4" />
             </BoardShiftArrow>
 
-            {animRow === row && animating ? (
-              <BoardLineCarousel
-                key={`row-anim-${animating.seq}-${row}`}
-                orientation="horizontal"
-                line={getLineCharacters(board, boardRows, boardCols, animating)}
-                direction={animating.direction}
-                lineLength={boardCols}
-                style={{
-                  gridColumn: `2 / span ${boardCols}`,
-                  gridRow: row + 2,
-                }}
-                renderCard={renderCard}
-                onComplete={onAnimComplete}
-              />
-            ) : (
-              Array.from({ length: boardCols }, (_, col) => {
-                if (animCol === col) {
-                  return (
-                    <div
-                      key={`ph-${row}-${col}`}
-                      className="min-h-0 min-w-0"
-                      style={{
-                        gridColumn: col + 2,
-                        gridRow: row + 2,
-                      }}
-                    />
-                  );
-                }
-                const character = board[row * boardCols + col]!;
-                return (
-                  <div
-                    key={character.id}
-                    className="relative min-h-0 min-w-0"
-                    style={{
-                      gridColumn: col + 2,
-                      gridRow: row + 2,
-                    }}
-                  >
-                    {renderCell(character)}
-                  </div>
-                );
-              })
-            )}
+            {Array.from({ length: boardCols }, (_, col) => {
+              const character = board[row * boardCols + col]!;
+              return (
+                <div
+                  key={character.id}
+                  className="relative min-h-0 min-w-0"
+                  style={{
+                    gridColumn: col + 2,
+                    gridRow: row + 2,
+                  }}
+                >
+                  {renderCell(character)}
+                </div>
+              );
+            })}
 
             <BoardShiftArrow
               enabled={canShift}
@@ -341,22 +305,6 @@ export function BoardGrid({
             </BoardShiftArrow>
           </div>
         ))}
-
-        {animCol !== null && animating ? (
-          <BoardLineCarousel
-            key={`col-anim-${animating.seq}-${animCol}`}
-            orientation="vertical"
-            line={getLineCharacters(board, boardRows, boardCols, animating)}
-            direction={animating.direction}
-            lineLength={boardRows}
-            style={{
-              gridColumn: animCol + 2,
-              gridRow: `2 / span ${boardRows}`,
-            }}
-            renderCard={renderCard}
-            onComplete={onAnimComplete}
-          />
-        ) : null}
 
         {Array.from({ length: boardCols }, (_, col) => (
           <BoardShiftArrow

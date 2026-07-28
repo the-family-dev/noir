@@ -16,7 +16,7 @@ export const Chat = observer(() => {
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    store.sendMessage();
+    store.chat.send();
   };
 
   const panelRef = useRef<HTMLDivElement>(null);
@@ -36,7 +36,7 @@ export const Chat = observer(() => {
       if (!(target instanceof Element)) return;
       if (panelRef.current?.contains(target)) return;
       if (target.closest("[data-chat-toggle]")) return;
-      store.setChatOpen(false);
+      store.chat.setOpen(false);
     };
 
     document.addEventListener("pointerdown", handlePointerDown);
@@ -49,7 +49,8 @@ export const Chat = observer(() => {
     <div
       ref={panelRef}
       className={cn(
-        "absolute top-2 right-2 bottom-2 z-30 flex w-75 max-w-[calc(100%-1rem)] flex-col gap-4",
+        // Подтягиваем к шапке: gap-8 минус sideOffset=4, как у меню действий
+        "absolute -top-7 right-0 bottom-0 z-30 flex w-75 max-w-[calc(100%-1rem)] flex-col gap-4",
         "rounded-lg border border-border bg-background/95 p-4 shadow-xl backdrop-blur-sm",
       )}
     >
@@ -60,7 +61,7 @@ export const Chat = observer(() => {
           size="icon-sm"
           variant="ghost"
           aria-label="Свернуть чат"
-          onClick={() => store.setChatOpen(false)}
+          onClick={() => store.chat.setOpen(false)}
         >
           <XIcon />
         </Button>
@@ -80,7 +81,7 @@ export const Chat = observer(() => {
           className="w-full"
           aria-label="Сообщение"
           value={inputMessage}
-          onChange={(e) => store.setChatMessage(e.target.value)}
+          onChange={(e) => store.chat.setMessage(e.target.value)}
           placeholder="Сообщение"
           maxLength={50}
         />

@@ -2,12 +2,10 @@
 import { makeAutoObservable } from "mobx";
 import {
   SocketEvents,
-  TMessage,
   TRoom,
   TUser,
   BoardShift,
   BoardRefreshAxis,
-  BoardCharacter,
 } from "@/server/types";
 import { socket } from "@/lib/socket";
 import { TypedStorage } from "@/utils/storage";
@@ -17,13 +15,9 @@ import {
   nameStorageKey,
   sessionIdStorageKey,
 } from "@/utils/constants";
-import {
-  boardsEqual,
-  detectBoardShift,
-  shiftBoardCharacters,
-} from "@/utils/board-shift";
 import { isTurnActionUsed } from "@/utils/turn-action";
 import { usePathname, useRouter } from "next/navigation";
+import { ChatStore } from "@/store/chat-store";
 
 export enum LoginType {
   Join = "join",
@@ -35,26 +29,6 @@ type TLoginForm = {
   type: LoginType;
 };
 
-type TChat = {
-  inputMessage: string;
-  messages: TMessage[];
-  /** Панель чата развёрнута поверх поля */
-  isOpen: boolean;
-};
-
-/** Активная анимация сдвига поля */
-export type BoardShiftAnimation = {
-  seq: number;
-  shift: BoardShift;
-  boardBefore: BoardCharacter[];
-  boardAfter: BoardCharacter[];
-  boardRows: number;
-  boardCols: number;
-};
-
-/** Локальный seq до ответа сервера */
-export const LOCAL_BOARD_SHIFT_SEQ = -1;
-
 function createSessionId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -64,11 +38,8 @@ function createSessionId(): string {
 
 class Store {
   loginForm: TLoginForm = this._getLoginFormDefaultState();
-  chat: TChat = {
-    inputMessage: "",
-    messages: [],
-    isOpen: false,
-  };
+  /** Вложенный стор чата комнаты */
+  chat = new ChatStore(this);
 
   private _nameStorage = new TypedStorage<string | undefined>(
     nameStorageKey,
@@ -93,21 +64,18 @@ class Store {
   suppressAutoJoin = false;
   /** true, пока ждём ответ сокета на создание/вход в комнату */
   isEnteringRoom = false;
-  /** Текущая анимация сдвига (общая для всех клиентов) */
-  boardShiftAnim: BoardShiftAnimation | null = null;
   /**
    * Timestamp, до которого локально блокируется «Завершить ход»
    * (только у игрока, сделавшего действие).
    */
   endTurnCooldownUntil: number | null = null;
 
-  private lastPlayedShiftSeq = 0;
-
   router: ReturnType<typeof useRouter> | undefined = undefined;
   pathname: ReturnType<typeof usePathname> | undefined = undefined;
 
   constructor() {
-    makeAutoObservable(this);
+    // chat уже observable-класс — не оборачиваем повторно
+    makeAutoObservable(this, { chat: false });
   }
 
   get isAdmin() {
@@ -187,41 +155,7 @@ class Store {
     this.loginForm[field] = value;
   }
 
-  public setChatMessage(message: string) {
-    this.chat.inputMessage = message;
-  }
-
-  public setChatOpen(isOpen: boolean) {
-    this.chat.isOpen = isOpen;
-  }
-
-  public toggleChat() {
-    this.chat.isOpen = !this.chat.isOpen;
-  }
-
-  public sendMessage() {
-    if (this.room === undefined) return;
-    if (this.userName === undefined) return;
-    if (this.chat.inputMessage.trim() === "") return;
-
-    socket.emit(SocketEvents.SendMessage, {
-      roomCode: this.room.roomCode,
-      message: {
-        content: this.chat.inputMessage,
-        sender: this.userName,
-      },
-    });
-
-    this.chat.inputMessage = "";
-  }
-
-  public receiveMessage(message: TMessage) {
-    this.chat.messages.push(message);
-  }
-
   public setRoom(room: TRoom) {
-    const previousBoard = this.room?.game.board;
-
     this.room = room;
     this.isEnteringRoom = false;
     this._activeRoomCodeStorage.set(room.roomCode);
@@ -229,22 +163,6 @@ class Store {
     // Чужой ход — локальный кулдаун больше не нужен
     if (!this.isMyTurn) {
       this.endTurnCooldownUntil = null;
-    }
-
-    // RoomUpdated обновляет состояние; анимацию сдвига запускаем отдельно
-    if (
-      previousBoard &&
-      previousBoard.length > 0 &&
-      room.game.board.length > 0 &&
-      !boardsEqual(previousBoard, room.game.board)
-    ) {
-      this.animateShift(
-        previousBoard,
-        room.game.board,
-        room.game.boardRows,
-        room.game.boardCols,
-        room.game.lastBoardShift ?? undefined,
-      );
     }
   }
 
@@ -263,10 +181,8 @@ class Store {
 
   public clearActiveRoom() {
     this.room = undefined;
-    this.chat = this._getChatDefaultState();
-    this.boardShiftAnim = null;
+    this.chat.reset();
     this.endTurnCooldownUntil = null;
-    this.lastPlayedShiftSeq = 0;
     this._activeRoomCodeStorage.remove();
   }
 
@@ -343,22 +259,6 @@ class Store {
     if (this.room === undefined) return;
     if (!this.isMyTurn) return;
     if (isTurnActionUsed(this.room.game)) return;
-    if (this.boardShiftAnim !== null) return;
-
-    const { boardRows, boardCols } = this.room.game;
-    const boardBefore = this.room.game.board.map((c) => ({ ...c }));
-    const boardAfter = shiftBoardCharacters(
-      boardBefore,
-      boardRows,
-      boardCols,
-      shift,
-    );
-
-    // Оптимистичная анимация до ответа сервера
-    this.animateShift(boardBefore, boardAfter, boardRows, boardCols, {
-      ...shift,
-      seq: LOCAL_BOARD_SHIFT_SEQ,
-    });
 
     this.startEndTurnCooldown();
     socket.emit(SocketEvents.ShiftBoard, {
@@ -371,7 +271,6 @@ class Store {
     if (this.room === undefined) return;
     if (!this.isMyTurn) return;
     if (isTurnActionUsed(this.room.game)) return;
-    if (this.boardShiftAnim !== null) return;
 
     this.startEndTurnCooldown();
     socket.emit(SocketEvents.RefreshBoard, {
@@ -384,7 +283,6 @@ class Store {
     if (this.room === undefined) return;
     if (!this.isMyTurn) return;
     if (isTurnActionUsed(this.room.game)) return;
-    if (this.boardShiftAnim !== null) return;
 
     this.startEndTurnCooldown();
     socket.emit(SocketEvents.Interrogate, {
@@ -399,7 +297,6 @@ class Store {
     if (this.sessionId === undefined) return;
     if (accusedSessionId === this.sessionId) return;
     if (isTurnActionUsed(this.room.game)) return;
-    if (this.boardShiftAnim !== null) return;
 
     this.startEndTurnCooldown();
     socket.emit(SocketEvents.CatchSuspect, {
@@ -407,72 +304,6 @@ class Store {
       targetCharacterId,
       accusedSessionId,
     });
-  }
-
-  /**
-   * Запускает анимацию сдвига по состояниям доски «до» и «после».
-   * RoomUpdated только меняет room; анимацией занимается эта функция.
-   */
-  public animateShift(
-    boardBefore: BoardCharacter[],
-    boardAfter: BoardCharacter[],
-    boardRows: number,
-    boardCols: number,
-    knownShift?: BoardShift & { seq?: number },
-  ) {
-    if (boardsEqual(boardBefore, boardAfter)) return;
-    if (boardRows <= 0 || boardCols <= 0) return;
-    if (boardBefore.length !== boardRows * boardCols) return;
-
-    // У инициатора уже крутится локальная анимация — только подтверждаем seq
-    if (
-      this.boardShiftAnim !== null &&
-      this.boardShiftAnim.seq === LOCAL_BOARD_SHIFT_SEQ
-    ) {
-      const seq = knownShift?.seq;
-      if (seq !== undefined && seq > 0) {
-        this.lastPlayedShiftSeq = seq;
-        this.boardShiftAnim = { ...this.boardShiftAnim, seq };
-      }
-      return;
-    }
-
-    if (this.boardShiftAnim !== null) return;
-
-    const detected =
-      knownShift ??
-      detectBoardShift(boardBefore, boardAfter, boardRows, boardCols) ??
-      undefined;
-
-    if (detected === undefined) return;
-
-    const seq =
-      "seq" in detected && typeof detected.seq === "number"
-        ? detected.seq
-        : this.lastPlayedShiftSeq + 1;
-
-    if (seq > 0 && seq <= this.lastPlayedShiftSeq) return;
-
-    if (seq > 0) {
-      this.lastPlayedShiftSeq = seq;
-    }
-
-    this.boardShiftAnim = {
-      seq,
-      shift: {
-        axis: detected.axis,
-        index: detected.index,
-        direction: detected.direction,
-      },
-      boardBefore: boardBefore.map((c) => ({ ...c })),
-      boardAfter: boardAfter.map((c) => ({ ...c })),
-      boardRows,
-      boardCols,
-    };
-  }
-
-  public clearBoardShiftAnim() {
-    this.boardShiftAnim = null;
   }
 
   public joinRoom() {
@@ -573,14 +404,6 @@ class Store {
     return {
       roomCode: "",
       type: LoginType.Join,
-    };
-  }
-
-  private _getChatDefaultState(): TChat {
-    return {
-      inputMessage: "",
-      messages: [],
-      isOpen: false,
     };
   }
 }

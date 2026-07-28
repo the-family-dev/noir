@@ -75,7 +75,7 @@ export const SocketEventsHandler = observer(function SocketEventsHandler() {
     });
 
     socket.on(SocketEvents.ReceiveMessage, (message) => {
-      store.receiveMessage(message);
+      store.chat.receive(message);
     });
 
     if (socket.connected) {

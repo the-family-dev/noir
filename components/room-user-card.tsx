@@ -19,6 +19,9 @@ export const RoomUserCard = observer<RoomUserCardProps>(function RoomUserCard({
     store.sessionId !== undefined &&
     user.sessionId !== store.sessionId;
 
+  const isSelf =
+    store.sessionId !== undefined && user.sessionId === store.sessionId;
+
   const isRaisingHand =
     store.room?.game.lastInterrogation?.revealingSessionIds.includes(
       user.sessionId,
@@ -44,6 +47,11 @@ export const RoomUserCard = observer<RoomUserCardProps>(function RoomUserCard({
         )}
       >
         {user.name}
+        {isSelf ? (
+          <span className="ml-1.5 text-xs font-semibold text-amber-400">
+            (Вы)
+          </span>
+        ) : null}
       </span>
       {isRaisingHand ? (
         <HandIcon

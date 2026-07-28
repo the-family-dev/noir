@@ -32,7 +32,7 @@ export const RoomParticipantsList = observer(function RoomParticipantsList() {
       >
         <UsersIcon className="size-5" />
       </PopoverTrigger>
-      <PopoverContent side="left" align="end" className="w-72">
+      <PopoverContent side="bottom" align="end" className="w-72">
         <div className="flex flex-col gap-2">
           <div className="text-xs text-muted-foreground font-medium">
             Участники ({membersCount})

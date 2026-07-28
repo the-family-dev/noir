@@ -57,19 +57,6 @@ export function shiftBoardCharacters(
   return shiftBoardLine(board, rows, cols, shift);
 }
 
-/** Откат сдвига: из доски «после» получаем доску «до» */
-export function reverseBoardShift(
-  board: BoardCharacter[],
-  rows: number,
-  cols: number,
-  shift: BoardShift,
-): BoardCharacter[] {
-  return shiftBoardCharacters(board, rows, cols, {
-    ...shift,
-    direction: shift.direction === "positive" ? "negative" : "positive",
-  });
-}
-
 export function isValidBoardShift(
   rows: number,
   cols: number,
@@ -83,14 +70,6 @@ export function isValidBoardShift(
     (shift.axis === "row" || shift.axis === "column") &&
     (shift.direction === "positive" || shift.direction === "negative")
   );
-}
-
-export function boardsEqual(
-  a: BoardCharacter[],
-  b: BoardCharacter[],
-): boolean {
-  if (a.length !== b.length) return false;
-  return a.every((cell, i) => cell.id === b[i]?.id);
 }
 
 /** Достаёт персонажей одной строки/столбца */
@@ -124,59 +103,4 @@ export function shiftAxisLabel(axis: BoardShift["axis"]): string {
   return axis === "row" ? "ряд" : "столбец";
 }
 
-/** Strip для карусели: лишняя карточка с нужной стороны */
-export function buildCarouselStrip(
-  lineBefore: BoardCharacter[],
-  direction: BoardShift["direction"],
-): BoardCharacter[] {
-  if (direction === "positive") {
-    return [lineBefore[lineBefore.length - 1]!, ...lineBefore];
-  }
-  return [...lineBefore, lineBefore[0]!];
-}
-
-export function stepOffset(
-  direction: BoardShift["direction"],
-  at: "start" | "end",
-): number {
-  const start = direction === "positive" ? -1 : 0;
-  const end = direction === "positive" ? 0 : -1;
-  return at === "start" ? start : end;
-}
-
-/**
- * Определяет параметры сдвига по доскам «до» и «после».
- * Возвращает null, если доски не отличаются одним циклическим сдвигом.
- */
-export function detectBoardShift(
-  boardBefore: BoardCharacter[],
-  boardAfter: BoardCharacter[],
-  rows: number,
-  cols: number,
-): BoardShift | null {
-  if (boardBefore.length !== rows * cols) return null;
-  if (boardAfter.length !== rows * cols) return null;
-  if (boardsEqual(boardBefore, boardAfter)) return null;
-
-  const axes: BoardShift["axis"][] = ["row", "column"];
-  const directions: BoardShift["direction"][] = ["positive", "negative"];
-
-  for (const axis of axes) {
-    const maxIndex = axis === "row" ? rows : cols;
-    for (let index = 0; index < maxIndex; index++) {
-      for (const direction of directions) {
-        const shift: BoardShift = { axis, index, direction };
-        const candidate = shiftBoardCharacters(boardBefore, rows, cols, shift);
-        if (boardsEqual(candidate, boardAfter)) {
-          return shift;
-        }
-      }
-    }
-  }
-
-  return null;
-}
-
-export const BOARD_SHIFT_ANIMATION_MS = 650;
 export const BOARD_GAP = 6;
-export const BOARD_SHIFT_EASE = [0.25, 0.1, 0.25, 1] as const;
