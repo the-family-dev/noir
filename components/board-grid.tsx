@@ -6,12 +6,15 @@ import {
 } from "@/components/character-card";
 import { BoardLineCarousel } from "@/components/board-line-carousel";
 import { BoardShiftArrow } from "@/components/board-shift-arrow";
-import { BoardCharacter, BoardShift } from "@/server/types";
+import { BoardCharacter, BoardShift, TUser } from "@/server/types";
 import { BOARD_GAP, getLineCharacters } from "@/utils/board-shift";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -19,6 +22,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   ArrowUpIcon,
+  CrosshairIcon,
   SearchIcon,
 } from "lucide-react";
 
@@ -26,36 +30,55 @@ export type BoardGridProps = {
   board: BoardCharacter[];
   boardSize: number;
   selfCharacterId?: string;
+  /** sessionId текущего игрока — себя в поимке выбирать нельзя */
+  selfSessionId?: string;
+  members: TUser[];
   canShift: boolean;
   /** Можно открыть меню действий на карточке */
   canOpenCardMenu: boolean;
   /** id карточек, для которых доступен допрос */
   interrogatableIds: ReadonlySet<string>;
+  /** id карточек, для которых доступна поимка */
+  catchableIds: ReadonlySet<string>;
   /** Подсветка карточек во время допроса */
   highlightById: ReadonlyMap<string, CharacterCardHighlight>;
   /** Активный сдвиг (карусель), иначе обычная сетка */
   animating: (BoardShift & { seq: number }) | null;
   onShift: (shift: BoardShift) => void;
   onInterrogate: (targetCharacterId: string) => void;
+  onCatch: (targetCharacterId: string, accusedSessionId: string) => void;
   onAnimComplete: () => void;
 };
+
+function CharacterNameBadge({ name }: { name: string }) {
+  return (
+    <span className="rounded bg-rose-500/20 px-1.5 py-0.5 font-semibold text-rose-300 group-focus/dropdown-menu-item:text-rose-300 group-data-highlighted/dropdown-menu-item:text-rose-300 group-data-popup-open/dropdown-menu-item:text-rose-300 group-data-disabled/dropdown-menu-item:text-rose-300/50">
+      {name}
+    </span>
+  );
+}
 
 export function BoardGrid({
   board,
   boardSize,
   selfCharacterId,
+  selfSessionId,
+  members,
   canShift,
   canOpenCardMenu,
   interrogatableIds,
+  catchableIds,
   highlightById,
   animating,
   onShift,
   onInterrogate,
+  onCatch,
   onAnimComplete,
 }: BoardGridProps) {
   const gutter = "2.25rem";
   const animCol = animating?.axis === "column" ? animating.index : null;
   const animRow = animating?.axis === "row" ? animating.index : null;
+  const catchCandidates = members.filter((m) => m.sessionId !== selfSessionId);
 
   const renderCard = (character: BoardCharacter, key: string) => (
     <CharacterCard
@@ -75,6 +98,7 @@ export function BoardGrid({
     }
 
     const canInterrogate = interrogatableIds.has(character.id);
+    const canCatch = catchableIds.has(character.id);
 
     return (
       <DropdownMenu>
@@ -104,12 +128,46 @@ export function BoardGrid({
           >
             <SearchIcon />
             <span className="whitespace-nowrap">
-              Допросить{" "}
-              <span className="rounded bg-rose-500/20 px-1.5 py-0.5 font-semibold text-rose-300 group-focus/dropdown-menu-item:text-rose-300 group-data-highlighted/dropdown-menu-item:text-rose-300">
-                {character.name}
-              </span>
+              Допросить <CharacterNameBadge name={character.name} />
             </span>
           </DropdownMenuItem>
+
+          {canCatch ? (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="whitespace-nowrap">
+                <CrosshairIcon />
+                <span className="whitespace-nowrap">
+                  Поймать <CharacterNameBadge name={character.name} />
+                </span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-auto min-w-max">
+                {catchCandidates.map((member) => (
+                  <DropdownMenuItem
+                    key={member.sessionId}
+                    className="whitespace-nowrap"
+                    onClick={() => {
+                      onCatch(character.id, member.sessionId);
+                    }}
+                  >
+                    <span className="whitespace-nowrap">
+                      это{" "}
+                      <span className="rounded bg-sky-500/20 px-1.5 py-0.5 font-semibold text-sky-300 group-focus/dropdown-menu-item:text-sky-300 group-data-highlighted/dropdown-menu-item:text-sky-300">
+                        {member.name}
+                      </span>
+                      ?
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          ) : (
+            <DropdownMenuItem disabled className="whitespace-nowrap">
+              <CrosshairIcon />
+              <span className="whitespace-nowrap">
+                Поймать <CharacterNameBadge name={character.name} />
+              </span>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     );

@@ -28,6 +28,22 @@ export function boardSizeForPlayerCount(playerCount: number): number {
   return MAX_BOARD_SIZE;
 }
 
+function resetTurnFlags(
+  game: NoirGameState,
+  currentTurnSessionId: string | null,
+): NoirGameState {
+  return {
+    ...game,
+    currentTurnSessionId,
+    boardShiftUsedThisTurn: false,
+    interrogateUsedThisTurn: false,
+    catchUsedThisTurn: false,
+    lastBoardShift: null,
+    lastInterrogation: null,
+    lastCatch: null,
+  };
+}
+
 export function createInitialNoirGameState(
   playerCount = 1,
 ): NoirGameState {
@@ -39,8 +55,10 @@ export function createInitialNoirGameState(
     currentTurnSessionId: null,
     boardShiftUsedThisTurn: false,
     interrogateUsedThisTurn: false,
+    catchUsedThisTurn: false,
     lastBoardShift: null,
     lastInterrogation: null,
+    lastCatch: null,
   };
 }
 
@@ -85,8 +103,10 @@ export function buildPlayingGameState(
     currentTurnSessionId: turnOrder[0] ?? null,
     boardShiftUsedThisTurn: false,
     interrogateUsedThisTurn: false,
+    catchUsedThisTurn: false,
     lastBoardShift: null,
     lastInterrogation: null,
+    lastCatch: null,
   };
 }
 
@@ -99,12 +119,7 @@ export function advanceTurnToNext(
   members: TUser[],
 ): NoirGameState {
   if (members.length === 0) {
-    return {
-      ...game,
-      currentTurnSessionId: null,
-      boardShiftUsedThisTurn: false,
-      interrogateUsedThisTurn: false,
-    };
+    return resetTurnFlags(game, null);
   }
 
   const order = members.map((m) => m.sessionId);
@@ -113,14 +128,7 @@ export function advanceTurnToNext(
     : -1;
   const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % order.length;
 
-  return {
-    ...game,
-    currentTurnSessionId: order[nextIndex] ?? null,
-    boardShiftUsedThisTurn: false,
-    interrogateUsedThisTurn: false,
-    lastBoardShift: null,
-    lastInterrogation: null,
-  };
+  return resetTurnFlags(game, order[nextIndex] ?? null);
 }
 
 /** Если ушедший был на ходу — передаёт ход следующему */
@@ -145,24 +153,10 @@ export function ensureValidCurrentTurn(
     removedSessionId &&
     game.currentTurnSessionId === removedSessionId
   ) {
-    return {
-      ...game,
-      currentTurnSessionId: members[0]?.sessionId ?? null,
-      boardShiftUsedThisTurn: false,
-      interrogateUsedThisTurn: false,
-      lastBoardShift: null,
-      lastInterrogation: null,
-    };
+    return resetTurnFlags(game, members[0]?.sessionId ?? null);
   }
 
-  return {
-    ...game,
-    currentTurnSessionId: members[0]?.sessionId ?? null,
-    boardShiftUsedThisTurn: false,
-    interrogateUsedThisTurn: false,
-    lastBoardShift: null,
-    lastInterrogation: null,
-  };
+  return resetTurnFlags(game, members[0]?.sessionId ?? null);
 }
 
 /** Оставляет в assignments только личность указанного игрока */
@@ -190,6 +184,9 @@ export function sanitizeRoomForSession(
               ...room.game.lastInterrogation.revealingSessionIds,
             ],
           }
+        : null,
+      lastCatch: room.game.lastCatch
+        ? { ...room.game.lastCatch }
         : null,
     },
   };

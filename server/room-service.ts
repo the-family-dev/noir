@@ -3,6 +3,7 @@ import {
   isValidBoardShift,
   shiftBoardCharacters,
 } from "@/utils/board-shift";
+import { resolveCatch } from "@/utils/catch";
 import { resolveInterrogation } from "@/utils/interrogation";
 import {
   advanceTurnToNext,
@@ -12,6 +13,7 @@ import {
   MIN_PLAYERS_TO_START,
   syncPreparationBoardSize,
 } from "@/utils/noir-game";
+import { isTurnActionUsed } from "@/utils/turn-action";
 import {
   BoardShift,
   GamePhase,
@@ -64,6 +66,13 @@ type InterrogateParams = {
   roomCode: string;
   socketId: string;
   targetCharacterId: string;
+};
+
+type CatchSuspectParams = {
+  roomCode: string;
+  socketId: string;
+  targetCharacterId: string;
+  accusedSessionId: string;
 };
 
 class RoomService {
@@ -324,17 +333,10 @@ class RoomService {
       return this.fail(RoomErrorCode.NotYourTurn, "Сейчас не ваш ход");
     }
 
-    if (room.game.boardShiftUsedThisTurn) {
+    if (isTurnActionUsed(room.game)) {
       return this.fail(
         RoomErrorCode.ActionAlreadyUsed,
-        "Сдвиг поля уже использован в этом ходу",
-      );
-    }
-
-    if (room.game.interrogateUsedThisTurn) {
-      return this.fail(
-        RoomErrorCode.ActionAlreadyUsed,
-        "В этом ходу уже выполнено другое действие",
+        "В этом ходу уже выполнено действие",
       );
     }
 
@@ -387,17 +389,10 @@ class RoomService {
       return this.fail(RoomErrorCode.NotYourTurn, "Сейчас не ваш ход");
     }
 
-    if (room.game.interrogateUsedThisTurn) {
+    if (isTurnActionUsed(room.game)) {
       return this.fail(
         RoomErrorCode.ActionAlreadyUsed,
-        "Допрос уже использован в этом ходу",
-      );
-    }
-
-    if (room.game.boardShiftUsedThisTurn) {
-      return this.fail(
-        RoomErrorCode.ActionAlreadyUsed,
-        "В этом ходу уже выполнено другое действие",
+        "В этом ходу уже выполнено действие",
       );
     }
 
@@ -423,6 +418,89 @@ class RoomService {
       ...room.game,
       interrogateUsedThisTurn: true,
       lastInterrogation: resolved.interrogation,
+    };
+
+    return { ok: true, room };
+  }
+
+  catchSuspect(params: CatchSuspectParams): RoomResult<{ room: TRoom }> {
+    const room = this.rooms.get(params.roomCode);
+    if (room === undefined) {
+      return this.fail(
+        RoomErrorCode.RoomNotFound,
+        `Комната ${params.roomCode} не найдена`,
+      );
+    }
+
+    if (room.game.phase !== GamePhase.Playing) {
+      return this.fail(
+        RoomErrorCode.InvalidPhase,
+        "Ловить можно только во время игры",
+      );
+    }
+
+    const member = room.members.find((m) => m.socketId === params.socketId);
+    if (member === undefined) {
+      return this.fail(
+        RoomErrorCode.MemberNotFound,
+        "Участник не найден в комнате",
+      );
+    }
+
+    if (room.game.currentTurnSessionId !== member.sessionId) {
+      return this.fail(RoomErrorCode.NotYourTurn, "Сейчас не ваш ход");
+    }
+
+    if (isTurnActionUsed(room.game)) {
+      return this.fail(
+        RoomErrorCode.ActionAlreadyUsed,
+        "В этом ходу уже выполнено действие",
+      );
+    }
+
+    if (
+      !room.members.some((m) => m.sessionId === params.accusedSessionId)
+    ) {
+      return this.fail(RoomErrorCode.MemberNotFound, "Игрок не найден");
+    }
+
+    if (params.accusedSessionId === member.sessionId) {
+      return this.fail(
+        RoomErrorCode.InvalidMove,
+        "Нельзя поймать самого себя",
+      );
+    }
+
+    const seq = (room.game.lastCatch?.seq ?? 0) + 1;
+    const resolved = resolveCatch({
+      board: room.game.board,
+      boardSize: room.game.boardSize,
+      assignments: room.game.assignments,
+      actorSessionId: member.sessionId,
+      targetCharacterId: params.targetCharacterId,
+      accusedSessionId: params.accusedSessionId,
+      seq,
+    });
+
+    if (!resolved.ok) {
+      const messages: Record<typeof resolved.reason, string> = {
+        not_adjacent:
+          "Поймать можно только соседнего подозреваемого",
+        self_target: "Нельзя поймать свою карточку",
+        target_dead: "Эта карточка уже убита",
+        accused_missing: "У выбранного игрока нет личности",
+        actor_missing: "У вас нет личности",
+        target_missing: "Некорректная цель",
+      };
+      return this.fail(RoomErrorCode.InvalidMove, messages[resolved.reason]);
+    }
+
+    room.game = {
+      ...room.game,
+      board: resolved.board,
+      assignments: resolved.assignments,
+      catchUsedThisTurn: true,
+      lastCatch: resolved.catchResult,
     };
 
     return { ok: true, room };

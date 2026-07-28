@@ -16,6 +16,7 @@ export enum SocketEvents {
   EndTurn = "end-turn",
   ShiftBoard = "shift-board",
   Interrogate = "interrogate",
+  CatchSuspect = "catch-suspect",
 
   AnyError = "any-error",
 
@@ -74,6 +75,8 @@ export enum GamePhase {
 export type BoardCharacter = {
   id: string;
   name: string;
+  /** Карточка убита после удачной поимки */
+  isDead?: boolean;
 };
 
 export type BoardShiftAxis = "row" | "column";
@@ -98,6 +101,16 @@ export type BoardInterrogation = {
   revealingSessionIds: string[];
 };
 
+/** Публичный результат попытки поймать */
+export type BoardCatch = {
+  seq: number;
+  actorSessionId: string;
+  targetCharacterId: string;
+  accusedSessionId: string;
+  /** Угадал ли личность */
+  hit: boolean;
+};
+
 export type NoirGameState = {
   phase: GamePhase;
   /** Длина стороны квадратного поля (например, 5 → 5×5) */
@@ -115,10 +128,14 @@ export type NoirGameState = {
   boardShiftUsedThisTurn: boolean;
   /** Допрос уже сделан в этом ходу */
   interrogateUsedThisTurn: boolean;
+  /** Поимка уже сделана в этом ходу */
+  catchUsedThisTurn: boolean;
   /** Последний сдвиг — для анимации у клиентов */
   lastBoardShift: (BoardShift & { seq: number }) | null;
   /** Последний допрос — результат виден всем до конца хода */
   lastInterrogation: BoardInterrogation | null;
+  /** Последняя попытка поймать — результат виден всем до конца хода */
+  lastCatch: BoardCatch | null;
 };
 
 export type TRoom = {
@@ -159,6 +176,11 @@ export type ClientToServerEvents = {
   [SocketEvents.Interrogate]: (params: {
     roomCode: string;
     targetCharacterId: string;
+  }) => void;
+  [SocketEvents.CatchSuspect]: (params: {
+    roomCode: string;
+    targetCharacterId: string;
+    accusedSessionId: string;
   }) => void;
 };
 

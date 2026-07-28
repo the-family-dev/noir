@@ -20,6 +20,7 @@ import {
   detectBoardShift,
   shiftBoardCharacters,
 } from "@/utils/board-shift";
+import { isTurnActionUsed } from "@/utils/turn-action";
 import { usePathname, useRouter } from "next/navigation";
 
 export enum LoginType {
@@ -286,12 +287,7 @@ class Store {
   public endTurn() {
     if (this.room === undefined) return;
     if (!this.isMyTurn) return;
-    if (
-      !this.room.game.boardShiftUsedThisTurn &&
-      !this.room.game.interrogateUsedThisTurn
-    ) {
-      return;
-    }
+    if (!isTurnActionUsed(this.room.game)) return;
 
     socket.emit(SocketEvents.EndTurn, {
       roomCode: this.room.roomCode,
@@ -301,8 +297,7 @@ class Store {
   public shiftBoard(shift: BoardShift) {
     if (this.room === undefined) return;
     if (!this.isMyTurn) return;
-    if (this.room.game.boardShiftUsedThisTurn) return;
-    if (this.room.game.interrogateUsedThisTurn) return;
+    if (isTurnActionUsed(this.room.game)) return;
     if (this.boardShiftAnim !== null) return;
 
     const boardBefore = this.room.game.board.map((c) => ({ ...c }));
@@ -327,13 +322,27 @@ class Store {
   public interrogate(targetCharacterId: string) {
     if (this.room === undefined) return;
     if (!this.isMyTurn) return;
-    if (this.room.game.interrogateUsedThisTurn) return;
-    if (this.room.game.boardShiftUsedThisTurn) return;
+    if (isTurnActionUsed(this.room.game)) return;
     if (this.boardShiftAnim !== null) return;
 
     socket.emit(SocketEvents.Interrogate, {
       roomCode: this.room.roomCode,
       targetCharacterId,
+    });
+  }
+
+  public catchSuspect(targetCharacterId: string, accusedSessionId: string) {
+    if (this.room === undefined) return;
+    if (!this.isMyTurn) return;
+    if (this.sessionId === undefined) return;
+    if (accusedSessionId === this.sessionId) return;
+    if (isTurnActionUsed(this.room.game)) return;
+    if (this.boardShiftAnim !== null) return;
+
+    socket.emit(SocketEvents.CatchSuspect, {
+      roomCode: this.room.roomCode,
+      targetCharacterId,
+      accusedSessionId,
     });
   }
 

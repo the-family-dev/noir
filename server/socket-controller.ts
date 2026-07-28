@@ -203,6 +203,22 @@ export function registerSocketHandlers(io: AppServer, socket: AppSocket): void {
     broadcastRoom(io, result.room);
   });
 
+  socket.on(SocketEvents.CatchSuspect, (params) => {
+    const result = roomService.catchSuspect({
+      roomCode: params.roomCode,
+      socketId: socket.id,
+      targetCharacterId: params.targetCharacterId,
+      accusedSessionId: params.accusedSessionId,
+    });
+
+    if (!result.ok) {
+      emitError(socket, result);
+      return;
+    }
+
+    broadcastRoom(io, result.room);
+  });
+
   socket.on(SocketEvents.Disconnect, () => {
     const found = roomService.disconnect(socket.id);
     if (found === undefined) return;
