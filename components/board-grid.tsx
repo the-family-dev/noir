@@ -1,15 +1,25 @@
 "use client";
 
-import { CharacterCard } from "@/components/character-card";
+import {
+  CharacterCard,
+  CharacterCardHighlight,
+} from "@/components/character-card";
 import { BoardLineCarousel } from "@/components/board-line-carousel";
 import { BoardShiftArrow } from "@/components/board-shift-arrow";
 import { BoardCharacter, BoardShift } from "@/server/types";
 import { BOARD_GAP, getLineCharacters } from "@/utils/board-shift";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   ArrowDownIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
   ArrowUpIcon,
+  SearchIcon,
 } from "lucide-react";
 
 export type BoardGridProps = {
@@ -17,9 +27,16 @@ export type BoardGridProps = {
   boardSize: number;
   selfCharacterId?: string;
   canShift: boolean;
+  /** Можно открыть меню действий на карточке */
+  canOpenCardMenu: boolean;
+  /** id карточек, для которых доступен допрос */
+  interrogatableIds: ReadonlySet<string>;
+  /** Подсветка карточек во время допроса */
+  highlightById: ReadonlyMap<string, CharacterCardHighlight>;
   /** Активный сдвиг (карусель), иначе обычная сетка */
   animating: (BoardShift & { seq: number }) | null;
   onShift: (shift: BoardShift) => void;
+  onInterrogate: (targetCharacterId: string) => void;
   onAnimComplete: () => void;
 };
 
@@ -28,8 +45,12 @@ export function BoardGrid({
   boardSize,
   selfCharacterId,
   canShift,
+  canOpenCardMenu,
+  interrogatableIds,
+  highlightById,
   animating,
   onShift,
+  onInterrogate,
   onAnimComplete,
 }: BoardGridProps) {
   const gutter = "2.25rem";
@@ -41,9 +62,58 @@ export function BoardGrid({
       key={key}
       character={character}
       isSelf={character.id === selfCharacterId}
+      highlight={highlightById.get(character.id) ?? "none"}
       className="h-full w-full"
     />
   );
+
+  const renderCell = (character: BoardCharacter) => {
+    const card = renderCard(character, character.id);
+
+    if (!canOpenCardMenu) {
+      return card;
+    }
+
+    const canInterrogate = interrogatableIds.has(character.id);
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              className="h-full w-full min-h-0 min-w-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`Действия: ${character.name}`}
+            />
+          }
+        >
+          {card}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="center"
+          side="bottom"
+          className="w-auto min-w-max"
+        >
+          <DropdownMenuItem
+            disabled={!canInterrogate}
+            className="whitespace-nowrap"
+            onClick={() => {
+              if (!canInterrogate) return;
+              onInterrogate(character.id);
+            }}
+          >
+            <SearchIcon />
+            <span className="whitespace-nowrap">
+              Допросить{" "}
+              <span className="rounded bg-rose-500/20 px-1.5 py-0.5 font-semibold text-rose-300 group-focus/dropdown-menu-item:text-rose-300 group-data-highlighted/dropdown-menu-item:text-rose-300">
+                {character.name}
+              </span>
+            </span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
 
   return (
     <div
@@ -134,7 +204,7 @@ export function BoardGrid({
                       gridRow: row + 2,
                     }}
                   >
-                    {renderCard(character, character.id)}
+                    {renderCell(character)}
                   </div>
                 );
               })

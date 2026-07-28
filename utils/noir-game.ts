@@ -38,7 +38,9 @@ export function createInitialNoirGameState(
     assignments: {},
     currentTurnSessionId: null,
     boardShiftUsedThisTurn: false,
+    interrogateUsedThisTurn: false,
     lastBoardShift: null,
+    lastInterrogation: null,
   };
 }
 
@@ -82,7 +84,9 @@ export function buildPlayingGameState(
     assignments,
     currentTurnSessionId: turnOrder[0] ?? null,
     boardShiftUsedThisTurn: false,
+    interrogateUsedThisTurn: false,
     lastBoardShift: null,
+    lastInterrogation: null,
   };
 }
 
@@ -99,6 +103,7 @@ export function advanceTurnToNext(
       ...game,
       currentTurnSessionId: null,
       boardShiftUsedThisTurn: false,
+      interrogateUsedThisTurn: false,
     };
   }
 
@@ -112,7 +117,9 @@ export function advanceTurnToNext(
     ...game,
     currentTurnSessionId: order[nextIndex] ?? null,
     boardShiftUsedThisTurn: false,
+    interrogateUsedThisTurn: false,
     lastBoardShift: null,
+    lastInterrogation: null,
   };
 }
 
@@ -142,7 +149,9 @@ export function ensureValidCurrentTurn(
       ...game,
       currentTurnSessionId: members[0]?.sessionId ?? null,
       boardShiftUsedThisTurn: false,
+      interrogateUsedThisTurn: false,
       lastBoardShift: null,
+      lastInterrogation: null,
     };
   }
 
@@ -150,7 +159,9 @@ export function ensureValidCurrentTurn(
     ...game,
     currentTurnSessionId: members[0]?.sessionId ?? null,
     boardShiftUsedThisTurn: false,
+    interrogateUsedThisTurn: false,
     lastBoardShift: null,
+    lastInterrogation: null,
   };
 }
 
@@ -170,6 +181,15 @@ export function sanitizeRoomForSession(
       assignments: selfId ? { [sessionId]: selfId } : {},
       lastBoardShift: room.game.lastBoardShift
         ? { ...room.game.lastBoardShift }
+        : null,
+      lastInterrogation: room.game.lastInterrogation
+        ? {
+            ...room.game.lastInterrogation,
+            zoneCharacterIds: [...room.game.lastInterrogation.zoneCharacterIds],
+            revealingSessionIds: [
+              ...room.game.lastInterrogation.revealingSessionIds,
+            ],
+          }
         : null,
     },
   };

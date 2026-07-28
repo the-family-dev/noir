@@ -3,6 +3,7 @@ import {
   isValidBoardShift,
   shiftBoardCharacters,
 } from "@/utils/board-shift";
+import { resolveInterrogation } from "@/utils/interrogation";
 import {
   advanceTurnToNext,
   buildPlayingGameState,
@@ -57,6 +58,12 @@ type ShiftBoardParams = {
   roomCode: string;
   socketId: string;
   shift: BoardShift;
+};
+
+type InterrogateParams = {
+  roomCode: string;
+  socketId: string;
+  targetCharacterId: string;
 };
 
 class RoomService {
@@ -324,6 +331,13 @@ class RoomService {
       );
     }
 
+    if (room.game.interrogateUsedThisTurn) {
+      return this.fail(
+        RoomErrorCode.ActionAlreadyUsed,
+        "В этом ходу уже выполнено другое действие",
+      );
+    }
+
     if (!isValidBoardShift(room.game.boardSize, params.shift)) {
       return this.fail(RoomErrorCode.InvalidMove, "Некорректный сдвиг поля");
     }
@@ -340,6 +354,75 @@ class RoomService {
       ),
       boardShiftUsedThisTurn: true,
       lastBoardShift: shift,
+    };
+
+    return { ok: true, room };
+  }
+
+  interrogate(params: InterrogateParams): RoomResult<{ room: TRoom }> {
+    const room = this.rooms.get(params.roomCode);
+    if (room === undefined) {
+      return this.fail(
+        RoomErrorCode.RoomNotFound,
+        `Комната ${params.roomCode} не найдена`,
+      );
+    }
+
+    if (room.game.phase !== GamePhase.Playing) {
+      return this.fail(
+        RoomErrorCode.InvalidPhase,
+        "Допрашивать можно только во время игры",
+      );
+    }
+
+    const member = room.members.find((m) => m.socketId === params.socketId);
+    if (member === undefined) {
+      return this.fail(
+        RoomErrorCode.MemberNotFound,
+        "Участник не найден в комнате",
+      );
+    }
+
+    if (room.game.currentTurnSessionId !== member.sessionId) {
+      return this.fail(RoomErrorCode.NotYourTurn, "Сейчас не ваш ход");
+    }
+
+    if (room.game.interrogateUsedThisTurn) {
+      return this.fail(
+        RoomErrorCode.ActionAlreadyUsed,
+        "Допрос уже использован в этом ходу",
+      );
+    }
+
+    if (room.game.boardShiftUsedThisTurn) {
+      return this.fail(
+        RoomErrorCode.ActionAlreadyUsed,
+        "В этом ходу уже выполнено другое действие",
+      );
+    }
+
+    const seq = (room.game.lastInterrogation?.seq ?? 0) + 1;
+    const resolved = resolveInterrogation({
+      board: room.game.board,
+      boardSize: room.game.boardSize,
+      assignments: room.game.assignments,
+      actorSessionId: member.sessionId,
+      targetCharacterId: params.targetCharacterId,
+      seq,
+    });
+
+    if (!resolved.ok) {
+      const message =
+        resolved.reason === "not_adjacent"
+          ? "Допросить можно только себя или соседнего подозреваемого"
+          : "Некорректная цель допроса";
+      return this.fail(RoomErrorCode.InvalidMove, message);
+    }
+
+    room.game = {
+      ...room.game,
+      interrogateUsedThisTurn: true,
+      lastInterrogation: resolved.interrogation,
     };
 
     return { ok: true, room };

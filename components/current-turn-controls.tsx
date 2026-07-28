@@ -34,11 +34,24 @@ export const CurrentTurnIndicator = observer(function CurrentTurnIndicator() {
 });
 
 export const EndTurnButton = observer(function EndTurnButton() {
-  const { isMyTurn } = store;
-  if (!isMyTurn) return null;
+  const { isMyTurn, room } = store;
+  const actionUsed =
+    room?.game.boardShiftUsedThisTurn === true ||
+    room?.game.interrogateUsedThisTurn === true;
+  const canEndTurn = isMyTurn && actionUsed;
 
   return (
-    <Button size="lg" className="min-w-48" onClick={() => store.endTurn()}>
+    <Button
+      size="lg"
+      className={cn(
+        "min-w-48",
+        !isMyTurn && "invisible pointer-events-none",
+      )}
+      disabled={!canEndTurn}
+      tabIndex={isMyTurn ? undefined : -1}
+      aria-hidden={!isMyTurn}
+      onClick={() => store.endTurn()}
+    >
       Завершить ход
     </Button>
   );

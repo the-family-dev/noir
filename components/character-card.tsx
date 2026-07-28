@@ -1,17 +1,23 @@
+"use client";
+
 import { BoardCharacter } from "@/server/types";
 import { cn } from "@/lib/utils";
 import { getMonogram } from "@/utils/monogram";
+
+export type CharacterCardHighlight = "none" | "zone" | "target";
 
 export type CharacterCardProps = {
   character: BoardCharacter;
   /** Карточка принадлежит текущему игроку — видна только ему */
   isSelf?: boolean;
+  highlight?: CharacterCardHighlight;
   className?: string;
 };
 
 export function CharacterCard({
   character,
   isSelf = false,
+  highlight = "none",
   className,
 }: CharacterCardProps) {
   const monogram = getMonogram(character.name);
@@ -22,7 +28,11 @@ export function CharacterCard({
         "relative flex h-full w-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border/80",
         "bg-linear-to-b from-zinc-800 via-zinc-900 to-black",
         "shadow-[inset_0_1px_0_0_rgb(255_255_255/0.06)]",
+        "transition-[box-shadow,border-color,transform] duration-300",
         isSelf && "border-amber-400/80 ring-2 ring-amber-400/50",
+        highlight === "zone" && "border-sky-400/70 ring-2 ring-sky-400/40",
+        highlight === "target" &&
+          "z-10 border-rose-400 ring-2 ring-rose-400/70 shadow-[0_0_24px_rgb(251_113_133/0.35)]",
         className,
       )}
     >

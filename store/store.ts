@@ -206,7 +206,7 @@ class Store {
     this.isEnteringRoom = false;
     this._activeRoomCodeStorage.set(room.roomCode);
 
-    // RoomUpdated обновляет состояние; анимацию запускаем отдельно
+    // RoomUpdated обновляет состояние; анимацию сдвига запускаем отдельно
     if (
       previousBoard &&
       previousBoard.length > 0 &&
@@ -286,6 +286,12 @@ class Store {
   public endTurn() {
     if (this.room === undefined) return;
     if (!this.isMyTurn) return;
+    if (
+      !this.room.game.boardShiftUsedThisTurn &&
+      !this.room.game.interrogateUsedThisTurn
+    ) {
+      return;
+    }
 
     socket.emit(SocketEvents.EndTurn, {
       roomCode: this.room.roomCode,
@@ -296,6 +302,7 @@ class Store {
     if (this.room === undefined) return;
     if (!this.isMyTurn) return;
     if (this.room.game.boardShiftUsedThisTurn) return;
+    if (this.room.game.interrogateUsedThisTurn) return;
     if (this.boardShiftAnim !== null) return;
 
     const boardBefore = this.room.game.board.map((c) => ({ ...c }));
@@ -314,6 +321,19 @@ class Store {
     socket.emit(SocketEvents.ShiftBoard, {
       roomCode: this.room.roomCode,
       shift,
+    });
+  }
+
+  public interrogate(targetCharacterId: string) {
+    if (this.room === undefined) return;
+    if (!this.isMyTurn) return;
+    if (this.room.game.interrogateUsedThisTurn) return;
+    if (this.room.game.boardShiftUsedThisTurn) return;
+    if (this.boardShiftAnim !== null) return;
+
+    socket.emit(SocketEvents.Interrogate, {
+      roomCode: this.room.roomCode,
+      targetCharacterId,
     });
   }
 

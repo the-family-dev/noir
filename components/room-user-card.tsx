@@ -2,7 +2,7 @@
 
 import { observer } from "mobx-react-lite";
 import { TUser } from "@/server/types";
-import { CrownIcon, UserXIcon, WifiOffIcon } from "lucide-react";
+import { CrownIcon, HandIcon, UserXIcon, WifiOffIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { store } from "@/store/store";
 import { cn } from "@/lib/utils";
@@ -19,8 +19,18 @@ export const RoomUserCard = observer<RoomUserCardProps>(function RoomUserCard({
     store.sessionId !== undefined &&
     user.sessionId !== store.sessionId;
 
+  const isRaisingHand =
+    store.room?.game.lastInterrogation?.revealingSessionIds.includes(
+      user.sessionId,
+    ) === true;
+
   return (
-    <div className="flex flex-row items-center gap-2 min-w-0 rounded-lg border bg-card px-3 py-2">
+    <div
+      className={cn(
+        "flex flex-row items-center gap-2 min-w-0 rounded-lg border bg-card px-3 py-2 transition-colors",
+        isRaisingHand && "border-sky-400/60 bg-sky-500/10",
+      )}
+    >
       {user.isAdmin ? (
         <CrownIcon
           className="size-4 shrink-0 text-amber-500"
@@ -35,6 +45,12 @@ export const RoomUserCard = observer<RoomUserCardProps>(function RoomUserCard({
       >
         {user.name}
       </span>
+      {isRaisingHand ? (
+        <HandIcon
+          className="size-4 shrink-0 text-sky-400"
+          aria-label="Рядом с целью допроса"
+        />
+      ) : null}
       {user.disconnected ? (
         <WifiOffIcon
           className="size-4 shrink-0 text-muted-foreground"

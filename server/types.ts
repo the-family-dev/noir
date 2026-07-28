@@ -15,6 +15,7 @@ export enum SocketEvents {
   StartGame = "start-game",
   EndTurn = "end-turn",
   ShiftBoard = "shift-board",
+  Interrogate = "interrogate",
 
   AnyError = "any-error",
 
@@ -84,6 +85,19 @@ export type BoardShift = {
   direction: BoardShiftDirection;
 };
 
+/** Публичный результат допроса — без раскрытия чужих assignments */
+export type BoardInterrogation = {
+  seq: number;
+  /** Кто провёл допрос */
+  actorSessionId: string;
+  /** Цель допроса на поле */
+  targetCharacterId: string;
+  /** Цель + соседние карточки — зона подсветки на поле */
+  zoneCharacterIds: string[];
+  /** Игроки, которые «поднимают руку» */
+  revealingSessionIds: string[];
+};
+
 export type NoirGameState = {
   phase: GamePhase;
   /** Длина стороны квадратного поля (например, 5 → 5×5) */
@@ -99,8 +113,12 @@ export type NoirGameState = {
   currentTurnSessionId: string | null;
   /** Сдвиг поля уже сделан в этом ходу */
   boardShiftUsedThisTurn: boolean;
+  /** Допрос уже сделан в этом ходу */
+  interrogateUsedThisTurn: boolean;
   /** Последний сдвиг — для анимации у клиентов */
   lastBoardShift: (BoardShift & { seq: number }) | null;
+  /** Последний допрос — результат виден всем до конца хода */
+  lastInterrogation: BoardInterrogation | null;
 };
 
 export type TRoom = {
@@ -137,6 +155,10 @@ export type ClientToServerEvents = {
   [SocketEvents.ShiftBoard]: (params: {
     roomCode: string;
     shift: BoardShift;
+  }) => void;
+  [SocketEvents.Interrogate]: (params: {
+    roomCode: string;
+    targetCharacterId: string;
   }) => void;
 };
 

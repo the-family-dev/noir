@@ -1,24 +1,37 @@
 "use client";
 
 import { BoardGrid } from "@/components/board-grid";
+import { CharacterCardHighlight } from "@/components/character-card";
 import {
   CurrentTurnIndicator,
   EndTurnButton,
 } from "@/components/current-turn-controls";
+import { InterrogationReveal } from "@/components/interrogation-reveal";
 import { BoardShift } from "@/server/types";
 import { store } from "@/store/store";
+import { canInterrogateTarget } from "@/utils/interrogation";
+import { cn } from "@/lib/utils";
 import { observer } from "mobx-react-lite";
+import { useMemo } from "react";
 
 export const GameBoard = observer(function GameBoard() {
   const { room, sessionId, isMyTurn, boardShiftAnim } = store;
-  if (room === undefined) return null;
 
-  const { board, boardSize, assignments, boardShiftUsedThisTurn } = room.game;
+  const board = room?.game.board ?? [];
+  const boardSize = room?.game.boardSize ?? 0;
+  const assignments = room?.game.assignments ?? {};
+  const boardShiftUsedThisTurn = room?.game.boardShiftUsedThisTurn ?? false;
+  const interrogateUsedThisTurn = room?.game.interrogateUsedThisTurn ?? false;
+  const lastInterrogation = room?.game.lastInterrogation ?? null;
+  const members = room?.members ?? [];
+
   const selfCharacterId =
     sessionId !== undefined ? assignments[sessionId] : undefined;
 
-  const isAnimating = boardShiftAnim !== null;
-  const canShift = isMyTurn && !boardShiftUsedThisTurn && !isAnimating;
+  const isShiftAnimating = boardShiftAnim !== null;
+  const actionUsed = boardShiftUsedThisTurn || interrogateUsedThisTurn;
+  const canShift = isMyTurn && !actionUsed && !isShiftAnimating;
+  const canOpenCardMenu = isMyTurn && !actionUsed && !isShiftAnimating;
 
   /** Во время анимации показываем кадр «до», иначе актуальное состояние комнаты */
   const displayBoard = boardShiftAnim?.boardBefore ?? board;
@@ -27,42 +40,120 @@ export const GameBoard = observer(function GameBoard() {
     ? { ...boardShiftAnim.shift, seq: boardShiftAnim.seq }
     : null;
 
-  if (displayBoard.length === 0) return null;
+  const interrogatableIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!canOpenCardMenu || selfCharacterId === undefined) return ids;
+
+    for (const character of displayBoard) {
+      if (
+        canInterrogateTarget(
+          displayBoard,
+          displaySize,
+          selfCharacterId,
+          character.id,
+        )
+      ) {
+        ids.add(character.id);
+      }
+    }
+    return ids;
+  }, [canOpenCardMenu, displayBoard, displaySize, selfCharacterId]);
+
+  const highlightById = useMemo(() => {
+    const map = new Map<string, CharacterCardHighlight>();
+    if (!lastInterrogation) return map;
+
+    for (const id of lastInterrogation.zoneCharacterIds) {
+      map.set(id, "zone");
+    }
+    map.set(lastInterrogation.targetCharacterId, "target");
+    return map;
+  }, [lastInterrogation]);
+
+  const revealingPlayers = useMemo(() => {
+    if (!lastInterrogation) return [];
+    const ids = new Set(lastInterrogation.revealingSessionIds);
+    // Допрашивающий всегда рядом с целью — в списке его не показываем
+    ids.delete(lastInterrogation.actorSessionId);
+    return members.filter((m) => ids.has(m.sessionId));
+  }, [lastInterrogation, members]);
+
+  const targetName = useMemo(() => {
+    if (!lastInterrogation) return "";
+    return (
+      board.find((c) => c.id === lastInterrogation.targetCharacterId)?.name ??
+      "…"
+    );
+  }, [lastInterrogation, board]);
+
+  const actorName = useMemo(() => {
+    if (!lastInterrogation) return "";
+    return (
+      members.find((m) => m.sessionId === lastInterrogation.actorSessionId)
+        ?.name ?? "…"
+    );
+  }, [lastInterrogation, members]);
+
+  if (room === undefined || displayBoard.length === 0) return null;
 
   const handleShift = (shift: BoardShift) => {
     if (!canShift) return;
     store.shiftBoard(shift);
   };
 
+  const handleInterrogate = (targetCharacterId: string) => {
+    if (!canOpenCardMenu) return;
+    store.interrogate(targetCharacterId);
+  };
+
+  const hint = (() => {
+    if (!isMyTurn) return null;
+    if (boardShiftUsedThisTurn) return "Сдвиг сделан — завершите ход";
+    if (interrogateUsedThisTurn) return "Допрос сделан — завершите ход";
+    return "Клик по карточке — допрос; край поля — сдвиг";
+  })();
+
   return (
-    <div className="flex h-full min-h-0 w-full max-w-3xl flex-col items-center gap-4">
+    <div className="relative flex h-full min-h-0 w-full max-w-3xl flex-col items-center gap-4">
       <CurrentTurnIndicator />
 
       <div
-        className="flex min-h-0 w-full flex-1 items-center justify-center"
+        className="relative flex min-h-0 w-full flex-1 items-center justify-center"
         style={{ containerType: "size" }}
       >
+        {lastInterrogation ? (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center px-3 pt-1">
+            <InterrogationReveal
+              actorName={actorName}
+              targetName={targetName}
+              revealingPlayers={revealingPlayers}
+            />
+          </div>
+        ) : null}
         <BoardGrid
           board={displayBoard}
           boardSize={displaySize}
           selfCharacterId={selfCharacterId}
           canShift={canShift}
+          canOpenCardMenu={canOpenCardMenu}
+          interrogatableIds={interrogatableIds}
+          highlightById={highlightById}
           animating={animating}
           onShift={handleShift}
+          onInterrogate={handleInterrogate}
           onAnimComplete={() => store.clearBoardShiftAnim()}
         />
       </div>
 
-      <div className="flex flex-col items-center gap-2">
-        {isMyTurn && boardShiftUsedThisTurn ? (
-          <p className="text-xs text-muted-foreground">
-            Сдвиг сделан — завершите ход
-          </p>
-        ) : isMyTurn ? (
-          <p className="text-xs text-muted-foreground">
-            Наведите на край поля, чтобы сдвинуть ряд или столбец
-          </p>
-        ) : null}
+      <div className="flex shrink-0 flex-col items-center gap-2">
+        <p
+          className={cn(
+            "text-xs text-muted-foreground",
+            !hint && "invisible",
+          )}
+        >
+          {hint ?? "\u00a0"}
+        </p>
         <EndTurnButton />
       </div>
     </div>
