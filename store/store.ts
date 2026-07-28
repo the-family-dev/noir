@@ -13,6 +13,7 @@ import { socket } from "@/lib/socket";
 import { TypedStorage } from "@/utils/storage";
 import {
   activeRoomCodeStorageKey,
+  END_TURN_REVEAL_MS,
   nameStorageKey,
   sessionIdStorageKey,
 } from "@/utils/constants";
@@ -94,6 +95,11 @@ class Store {
   isEnteringRoom = false;
   /** Текущая анимация сдвига (общая для всех клиентов) */
   boardShiftAnim: BoardShiftAnimation | null = null;
+  /**
+   * Timestamp, до которого локально блокируется «Завершить ход»
+   * (только у игрока, сделавшего действие).
+   */
+  endTurnCooldownUntil: number | null = null;
 
   private lastPlayedShiftSeq = 0;
 
@@ -220,6 +226,11 @@ class Store {
     this.isEnteringRoom = false;
     this._activeRoomCodeStorage.set(room.roomCode);
 
+    // Чужой ход — локальный кулдаун больше не нужен
+    if (!this.isMyTurn) {
+      this.endTurnCooldownUntil = null;
+    }
+
     // RoomUpdated обновляет состояние; анимацию сдвига запускаем отдельно
     if (
       previousBoard &&
@@ -254,6 +265,7 @@ class Store {
     this.room = undefined;
     this.chat = this._getChatDefaultState();
     this.boardShiftAnim = null;
+    this.endTurnCooldownUntil = null;
     this.lastPlayedShiftSeq = 0;
     this._activeRoomCodeStorage.remove();
   }
@@ -303,10 +315,28 @@ class Store {
     if (this.room === undefined) return;
     if (!this.isMyTurn) return;
     if (!isTurnActionUsed(this.room.game)) return;
+    if (this.isEndTurnOnCooldown) return;
 
+    this.endTurnCooldownUntil = null;
     socket.emit(SocketEvents.EndTurn, {
       roomCode: this.room.roomCode,
     });
+  }
+
+  /** Локальная пауза, чтобы все успели увидеть результат действия */
+  public startEndTurnCooldown() {
+    this.endTurnCooldownUntil = Date.now() + END_TURN_REVEAL_MS;
+  }
+
+  public clearEndTurnCooldown() {
+    this.endTurnCooldownUntil = null;
+  }
+
+  get isEndTurnOnCooldown(): boolean {
+    return (
+      this.endTurnCooldownUntil !== null &&
+      Date.now() < this.endTurnCooldownUntil
+    );
   }
 
   public shiftBoard(shift: BoardShift) {
@@ -330,6 +360,7 @@ class Store {
       seq: LOCAL_BOARD_SHIFT_SEQ,
     });
 
+    this.startEndTurnCooldown();
     socket.emit(SocketEvents.ShiftBoard, {
       roomCode: this.room.roomCode,
       shift,
@@ -342,6 +373,7 @@ class Store {
     if (isTurnActionUsed(this.room.game)) return;
     if (this.boardShiftAnim !== null) return;
 
+    this.startEndTurnCooldown();
     socket.emit(SocketEvents.RefreshBoard, {
       roomCode: this.room.roomCode,
       axis,
@@ -354,6 +386,7 @@ class Store {
     if (isTurnActionUsed(this.room.game)) return;
     if (this.boardShiftAnim !== null) return;
 
+    this.startEndTurnCooldown();
     socket.emit(SocketEvents.Interrogate, {
       roomCode: this.room.roomCode,
       targetCharacterId,
@@ -368,6 +401,7 @@ class Store {
     if (isTurnActionUsed(this.room.game)) return;
     if (this.boardShiftAnim !== null) return;
 
+    this.startEndTurnCooldown();
     socket.emit(SocketEvents.CatchSuspect, {
       roomCode: this.room.roomCode,
       targetCharacterId,

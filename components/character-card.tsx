@@ -3,7 +3,11 @@
 import { BoardCharacter } from "@/server/types";
 import { cn } from "@/lib/utils";
 
-export type CharacterCardHighlight = "none" | "zone" | "target";
+export type CharacterCardHighlight =
+  | "none"
+  | "zone"
+  | "target"
+  | "shift";
 
 export type CharacterCardProps = {
   character: BoardCharacter;
@@ -39,6 +43,8 @@ export function CharacterCard({
         highlight === "zone" && "border-sky-400/70 ring-2 ring-sky-400/40",
         highlight === "target" &&
           "z-10 border-rose-400 ring-2 ring-rose-400/70 shadow-[0_0_24px_rgb(251_113_133/0.35)]",
+        highlight === "shift" &&
+          "border-emerald-400/70 ring-2 ring-emerald-400/45",
         isDead && "border-zinc-700",
         showActionHover &&
           "cursor-pointer hover:z-10 hover:scale-[1.05] hover:border-sky-300/70 hover:brightness-110 hover:shadow-[0_0_20px_rgb(56_189_248/0.25)]",

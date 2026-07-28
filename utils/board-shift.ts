@@ -111,6 +111,19 @@ export function getLineCharacters(
   return line;
 }
 
+/** Подпись направления сдвига для UI */
+export function shiftDirectionLabel(shift: BoardShift): string {
+  if (shift.axis === "row") {
+    return shift.direction === "positive" ? "вправо" : "влево";
+  }
+  return shift.direction === "positive" ? "вниз" : "вверх";
+}
+
+/** «ряд» / «столбец» */
+export function shiftAxisLabel(axis: BoardShift["axis"]): string {
+  return axis === "row" ? "ряд" : "столбец";
+}
+
 /** Strip для карусели: лишняя карточка с нужной стороны */
 export function buildCarouselStrip(
   lineBefore: BoardCharacter[],

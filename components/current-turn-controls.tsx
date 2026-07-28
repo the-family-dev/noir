@@ -16,7 +16,8 @@ import {
   everyRowHasDead,
 } from "@/utils/board-refresh";
 import { isTurnActionUsed } from "@/utils/turn-action";
-import { ChevronDownIcon, LayoutGridIcon } from "lucide-react";
+import { ChevronDownIcon, LayoutGridIcon, Loader2Icon } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export const CurrentTurnIndicator = observer(function CurrentTurnIndicator() {
   const { currentTurnPlayer, isMyTurn } = store;
@@ -47,9 +48,38 @@ export const CurrentTurnIndicator = observer(function CurrentTurnIndicator() {
 });
 
 export const EndTurnButton = observer(function EndTurnButton() {
-  const { isMyTurn, room } = store;
-  const canEndTurn =
+  const { isMyTurn, room, endTurnCooldownUntil } = store;
+  /** Только для перерисовки; остаток всегда от Date.now() */
+  const [, setTick] = useState(0);
+
+  const remainingMs =
+    endTurnCooldownUntil !== null
+      ? Math.max(0, endTurnCooldownUntil - Date.now())
+      : 0;
+  const remainingSec = Math.ceil(remainingMs / 1000);
+  const onCooldown = remainingMs > 0;
+
+  useEffect(() => {
+    if (endTurnCooldownUntil === null) return;
+    if (Date.now() >= endTurnCooldownUntil) {
+      store.clearEndTurnCooldown();
+      return;
+    }
+
+    const id = window.setInterval(() => {
+      if (Date.now() >= endTurnCooldownUntil) {
+        store.clearEndTurnCooldown();
+        return;
+      }
+      setTick((n) => n + 1);
+    }, 200);
+
+    return () => window.clearInterval(id);
+  }, [endTurnCooldownUntil]);
+
+  const actionDone =
     isMyTurn && room !== undefined && isTurnActionUsed(room.game);
+  const canEndTurn = actionDone && !onCooldown;
 
   return (
     <Button
@@ -63,7 +93,14 @@ export const EndTurnButton = observer(function EndTurnButton() {
       aria-hidden={!isMyTurn}
       onClick={() => store.endTurn()}
     >
-      Завершить ход
+      {onCooldown ? (
+        <>
+          <Loader2Icon className="size-4 animate-spin" />
+          <span className="tabular-nums">{remainingSec}</span>
+        </>
+      ) : (
+        "Завершить ход"
+      )}
     </Button>
   );
 });

@@ -360,7 +360,11 @@ class RoomService {
     }
 
     const seq = (room.game.lastBoardShift?.seq ?? 0) + 1;
-    const shift = { ...params.shift, seq };
+    const shift = {
+      ...params.shift,
+      seq,
+      actorSessionId: member.sessionId,
+    };
 
     room.game = {
       ...room.game,

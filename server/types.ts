@@ -91,6 +91,13 @@ export type BoardShift = {
   direction: BoardShiftDirection;
 };
 
+/** Публичный результат сдвига поля */
+export type BoardShiftResult = BoardShift & {
+  seq: number;
+  /** Кто сдвинул поле */
+  actorSessionId: string;
+};
+
 /** Публичный результат допроса — без раскрытия чужих assignments */
 export type BoardInterrogation = {
   seq: number;
@@ -137,8 +144,8 @@ export type NoirGameState = {
   interrogateUsedThisTurn: boolean;
   /** Поимка уже сделана в этом ходу */
   catchUsedThisTurn: boolean;
-  /** Последний сдвиг — для анимации у клиентов */
-  lastBoardShift: (BoardShift & { seq: number }) | null;
+  /** Последний сдвиг — результат виден всем до конца хода */
+  lastBoardShift: BoardShiftResult | null;
   /** Последнее обновление поля */
   lastBoardRefresh: { axis: BoardRefreshAxis; seq: number } | null;
   /** Последний допрос — результат виден всем до конца хода */

@@ -8,8 +8,12 @@ import {
   RefreshBoardButton,
 } from "@/components/current-turn-controls";
 import { InterrogationReveal } from "@/components/interrogation-reveal";
+import { ShiftReveal } from "@/components/shift-reveal";
 import { BoardShift } from "@/server/types";
 import { store } from "@/store/store";
+import {
+  getLineCharacters,
+} from "@/utils/board-shift";
 import { canCatchTarget } from "@/utils/catch";
 import { canInterrogateTarget } from "@/utils/interrogation";
 import { isTurnActionUsed } from "@/utils/turn-action";
@@ -29,6 +33,7 @@ export const GameBoard = observer(function GameBoard() {
     room?.game.boardRefreshUsedThisTurn ?? false;
   const interrogateUsedThisTurn = room?.game.interrogateUsedThisTurn ?? false;
   const catchUsedThisTurn = room?.game.catchUsedThisTurn ?? false;
+  const lastBoardShift = room?.game.lastBoardShift ?? null;
   const lastInterrogation = room?.game.lastInterrogation ?? null;
   const lastCatch = room?.game.lastCatch ?? null;
   const members = room?.members ?? [];
@@ -114,10 +119,30 @@ export const GameBoard = observer(function GameBoard() {
         map.set(id, "zone");
       }
       map.set(lastInterrogation.targetCharacterId, "target");
+      return map;
+    }
+
+    if (lastBoardShift) {
+      const line = getLineCharacters(
+        board,
+        boardRows,
+        boardCols,
+        lastBoardShift,
+      );
+      for (const character of line) {
+        map.set(character.id, "shift");
+      }
     }
 
     return map;
-  }, [lastCatch, lastInterrogation]);
+  }, [
+    lastCatch,
+    lastInterrogation,
+    lastBoardShift,
+    board,
+    boardRows,
+    boardCols,
+  ]);
 
   const revealingPlayers = useMemo(() => {
     if (!lastInterrogation) return [];
@@ -166,6 +191,14 @@ export const GameBoard = observer(function GameBoard() {
     );
   }, [lastCatch, members]);
 
+  const shiftActorName = useMemo(() => {
+    if (!lastBoardShift) return "";
+    return (
+      members.find((m) => m.sessionId === lastBoardShift.actorSessionId)
+        ?.name ?? "…"
+    );
+  }, [lastBoardShift, members]);
+
   if (room === undefined || displayBoard.length === 0) return null;
 
   const handleShift = (shift: BoardShift) => {
@@ -195,28 +228,43 @@ export const GameBoard = observer(function GameBoard() {
     return "Клик по карточке — действие; край поля — сдвиг";
   })();
 
+  const revealBanner = (() => {
+    if (lastCatch) {
+      return (
+        <CatchReveal
+          actorName={catchActorName}
+          targetName={catchTargetName}
+          accusedName={catchAccusedName}
+          hit={lastCatch.hit}
+        />
+      );
+    }
+    if (lastInterrogation) {
+      return (
+        <InterrogationReveal
+          actorName={interrogationActorName}
+          targetName={interrogationTargetName}
+          revealingPlayers={revealingPlayers}
+        />
+      );
+    }
+    if (lastBoardShift) {
+      return (
+        <ShiftReveal actorName={shiftActorName} shift={lastBoardShift} />
+      );
+    }
+    return null;
+  })();
+
   return (
     <div className="relative flex h-full min-h-0 w-full max-w-6xl flex-col items-center gap-4">
       <div
         className="relative flex min-h-0 w-full flex-1 items-center justify-center"
         style={{ containerType: "size" }}
       >
-        {lastCatch ? (
+        {revealBanner ? (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center px-3 pt-1">
-            <CatchReveal
-              actorName={catchActorName}
-              targetName={catchTargetName}
-              accusedName={catchAccusedName}
-              hit={lastCatch.hit}
-            />
-          </div>
-        ) : lastInterrogation ? (
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center px-3 pt-1">
-            <InterrogationReveal
-              actorName={interrogationActorName}
-              targetName={interrogationTargetName}
-              revealingPlayers={revealingPlayers}
-            />
+            {revealBanner}
           </div>
         ) : null}
         <BoardGrid
