@@ -3,6 +3,7 @@ import {
   isValidBoardShift,
   shiftBoardCharacters,
 } from "@/utils/board-shift";
+import { refreshBoard } from "@/utils/board-refresh";
 import { resolveCatch } from "@/utils/catch";
 import { resolveInterrogation } from "@/utils/interrogation";
 import {
@@ -13,8 +14,10 @@ import {
   MIN_PLAYERS_TO_START,
   syncPreparationBoardSize,
 } from "@/utils/noir-game";
+import { shuffle } from "@/utils/shuffle";
 import { isTurnActionUsed } from "@/utils/turn-action";
 import {
+  BoardRefreshAxis,
   BoardShift,
   GamePhase,
   RoomErrorCode,
@@ -60,6 +63,12 @@ type ShiftBoardParams = {
   roomCode: string;
   socketId: string;
   shift: BoardShift;
+};
+
+type RefreshBoardParams = {
+  roomCode: string;
+  socketId: string;
+  axis: BoardRefreshAxis;
 };
 
 type InterrogateParams = {
@@ -257,8 +266,9 @@ class RoomService {
       );
     }
 
-    const boardSize = room.game.boardSize;
-    const cellCount = boardSize * boardSize;
+    const boardRows = room.game.boardRows;
+    const boardCols = room.game.boardCols;
+    const cellCount = boardRows * boardCols;
     if (room.members.length > cellCount) {
       return this.fail(
         RoomErrorCode.NotEnoughPlayers,
@@ -266,7 +276,8 @@ class RoomService {
       );
     }
 
-    room.game = buildPlayingGameState(boardSize, room.members);
+    // На старте поле квадратное
+    room.game = buildPlayingGameState(boardRows, room.members);
     return { ok: true, room };
   }
 
@@ -340,7 +351,11 @@ class RoomService {
       );
     }
 
-    if (!isValidBoardShift(room.game.boardSize, params.shift)) {
+    if (!isValidBoardShift(
+      room.game.boardRows,
+      room.game.boardCols,
+      params.shift,
+    )) {
       return this.fail(RoomErrorCode.InvalidMove, "Некорректный сдвиг поля");
     }
 
@@ -351,11 +366,103 @@ class RoomService {
       ...room.game,
       board: shiftBoardCharacters(
         room.game.board,
-        room.game.boardSize,
+        room.game.boardRows,
+        room.game.boardCols,
         params.shift,
       ),
       boardShiftUsedThisTurn: true,
       lastBoardShift: shift,
+    };
+
+    return { ok: true, room };
+  }
+
+  refreshBoard(params: RefreshBoardParams): RoomResult<{ room: TRoom }> {
+    const room = this.rooms.get(params.roomCode);
+    if (room === undefined) {
+      return this.fail(
+        RoomErrorCode.RoomNotFound,
+        `Комната ${params.roomCode} не найдена`,
+      );
+    }
+
+    if (room.game.phase !== GamePhase.Playing) {
+      return this.fail(
+        RoomErrorCode.InvalidPhase,
+        "Обновлять поле можно только во время игры",
+      );
+    }
+
+    const member = room.members.find((m) => m.socketId === params.socketId);
+    if (member === undefined) {
+      return this.fail(
+        RoomErrorCode.MemberNotFound,
+        "Участник не найден в комнате",
+      );
+    }
+
+    if (room.game.currentTurnSessionId !== member.sessionId) {
+      return this.fail(RoomErrorCode.NotYourTurn, "Сейчас не ваш ход");
+    }
+
+    if (isTurnActionUsed(room.game)) {
+      return this.fail(
+        RoomErrorCode.ActionAlreadyUsed,
+        "В этом ходу уже выполнено действие",
+      );
+    }
+
+    if (params.axis !== "row" && params.axis !== "column") {
+      return this.fail(RoomErrorCode.InvalidMove, "Некорректный тип обновления");
+    }
+
+    const refreshed = refreshBoard(
+      room.game.board,
+      room.game.boardRows,
+      room.game.boardCols,
+      params.axis,
+    );
+
+    if (refreshed === null) {
+      const message =
+        params.axis === "row"
+          ? "В каждой строке должен быть хотя бы один погибший"
+          : "В каждом столбце должен быть хотя бы один погибший";
+      return this.fail(RoomErrorCode.InvalidMove, message);
+    }
+
+    // Если личность игрока убрана с поля — назначаем новую свободную
+    const remainingIds = new Set(refreshed.board.map((c) => c.id));
+    const nextAssignments = { ...room.game.assignments };
+    const occupied = new Set(
+      Object.entries(nextAssignments)
+        .filter(([, characterId]) => remainingIds.has(characterId))
+        .map(([, characterId]) => characterId),
+    );
+    const freeLiving = shuffle(
+      refreshed.board.filter((c) => !c.isDead && !occupied.has(c.id)),
+    );
+
+    for (const [sessionId, characterId] of Object.entries(nextAssignments)) {
+      if (remainingIds.has(characterId)) continue;
+      const nextIdentity = freeLiving.shift();
+      if (nextIdentity !== undefined) {
+        nextAssignments[sessionId] = nextIdentity.id;
+      } else {
+        delete nextAssignments[sessionId];
+      }
+    }
+
+    const seq = (room.game.lastBoardRefresh?.seq ?? 0) + 1;
+
+    room.game = {
+      ...room.game,
+      board: refreshed.board,
+      boardRows: refreshed.rows,
+      boardCols: refreshed.cols,
+      assignments: nextAssignments,
+      boardRefreshUsedThisTurn: true,
+      lastBoardRefresh: { axis: params.axis, seq },
     };
 
     return { ok: true, room };
@@ -399,7 +506,8 @@ class RoomService {
     const seq = (room.game.lastInterrogation?.seq ?? 0) + 1;
     const resolved = resolveInterrogation({
       board: room.game.board,
-      boardSize: room.game.boardSize,
+      boardRows: room.game.boardRows,
+      boardCols: room.game.boardCols,
       assignments: room.game.assignments,
       actorSessionId: member.sessionId,
       targetCharacterId: params.targetCharacterId,
@@ -474,7 +582,8 @@ class RoomService {
     const seq = (room.game.lastCatch?.seq ?? 0) + 1;
     const resolved = resolveCatch({
       board: room.game.board,
-      boardSize: room.game.boardSize,
+      boardRows: room.game.boardRows,
+      boardCols: room.game.boardCols,
       assignments: room.game.assignments,
       actorSessionId: member.sessionId,
       targetCharacterId: params.targetCharacterId,

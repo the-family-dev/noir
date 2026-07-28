@@ -3,7 +3,10 @@
 import { BoardGrid } from "@/components/board-grid";
 import { CatchReveal } from "@/components/catch-reveal";
 import { CharacterCardHighlight } from "@/components/character-card";
-import { EndTurnButton } from "@/components/current-turn-controls";
+import {
+  EndTurnButton,
+  RefreshBoardButton,
+} from "@/components/current-turn-controls";
 import { InterrogationReveal } from "@/components/interrogation-reveal";
 import { BoardShift } from "@/server/types";
 import { store } from "@/store/store";
@@ -18,9 +21,12 @@ export const GameBoard = observer(function GameBoard() {
   const { room, sessionId, isMyTurn, boardShiftAnim } = store;
 
   const board = room?.game.board ?? [];
-  const boardSize = room?.game.boardSize ?? 0;
+  const boardRows = room?.game.boardRows ?? 0;
+  const boardCols = room?.game.boardCols ?? 0;
   const assignments = room?.game.assignments ?? {};
   const boardShiftUsedThisTurn = room?.game.boardShiftUsedThisTurn ?? false;
+  const boardRefreshUsedThisTurn =
+    room?.game.boardRefreshUsedThisTurn ?? false;
   const interrogateUsedThisTurn = room?.game.interrogateUsedThisTurn ?? false;
   const catchUsedThisTurn = room?.game.catchUsedThisTurn ?? false;
   const lastInterrogation = room?.game.lastInterrogation ?? null;
@@ -37,7 +43,8 @@ export const GameBoard = observer(function GameBoard() {
 
   /** Во время анимации показываем кадр «до», иначе актуальное состояние комнаты */
   const displayBoard = boardShiftAnim?.boardBefore ?? board;
-  const displaySize = boardShiftAnim?.boardSize ?? boardSize;
+  const displayRows = boardShiftAnim?.boardRows ?? boardRows;
+  const displayCols = boardShiftAnim?.boardCols ?? boardCols;
   const animating = boardShiftAnim
     ? { ...boardShiftAnim.shift, seq: boardShiftAnim.seq }
     : null;
@@ -50,7 +57,8 @@ export const GameBoard = observer(function GameBoard() {
       if (
         canInterrogateTarget(
           displayBoard,
-          displaySize,
+          displayRows,
+          displayCols,
           selfCharacterId,
           character.id,
         )
@@ -59,7 +67,13 @@ export const GameBoard = observer(function GameBoard() {
       }
     }
     return ids;
-  }, [canOpenCardMenu, displayBoard, displaySize, selfCharacterId]);
+  }, [
+    canOpenCardMenu,
+    displayBoard,
+    displayRows,
+    displayCols,
+    selfCharacterId,
+  ]);
 
   const catchableIds = useMemo(() => {
     const ids = new Set<string>();
@@ -69,7 +83,8 @@ export const GameBoard = observer(function GameBoard() {
       if (
         canCatchTarget(
           displayBoard,
-          displaySize,
+          displayRows,
+          displayCols,
           selfCharacterId,
           character.id,
         )
@@ -78,7 +93,13 @@ export const GameBoard = observer(function GameBoard() {
       }
     }
     return ids;
-  }, [canOpenCardMenu, displayBoard, displaySize, selfCharacterId]);
+  }, [
+    canOpenCardMenu,
+    displayBoard,
+    displayRows,
+    displayCols,
+    selfCharacterId,
+  ]);
 
   const highlightById = useMemo(() => {
     const map = new Map<string, CharacterCardHighlight>();
@@ -168,6 +189,7 @@ export const GameBoard = observer(function GameBoard() {
   const hint = (() => {
     if (!isMyTurn) return null;
     if (boardShiftUsedThisTurn) return "Сдвиг сделан — завершите ход";
+    if (boardRefreshUsedThisTurn) return "Обновление сделано — завершите ход";
     if (interrogateUsedThisTurn) return "Допрос сделан — завершите ход";
     if (catchUsedThisTurn) return "Поимка сделана — завершите ход";
     return "Клик по карточке — действие; край поля — сдвиг";
@@ -199,7 +221,8 @@ export const GameBoard = observer(function GameBoard() {
         ) : null}
         <BoardGrid
           board={displayBoard}
-          boardSize={displaySize}
+          boardRows={displayRows}
+          boardCols={displayCols}
           selfCharacterId={selfCharacterId}
           selfSessionId={sessionId}
           members={members}
@@ -225,7 +248,10 @@ export const GameBoard = observer(function GameBoard() {
         >
           {hint ?? "\u00a0"}
         </p>
-        <EndTurnButton />
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <RefreshBoardButton />
+          <EndTurnButton />
+        </div>
       </div>
     </div>
   );

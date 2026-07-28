@@ -12,14 +12,14 @@ export const StartGamePanel = observer(function StartGamePanel() {
 
   const playerCount = room.members.length;
   const canStart = playerCount >= MIN_PLAYERS_TO_START;
-  const { boardSize } = room.game;
+  const { boardRows, boardCols } = room.game;
 
   return (
     <div className="flex flex-col items-center gap-4 text-center max-w-sm px-4">
       <div className="space-y-1">
         <p className="text-lg font-medium text-foreground">Подготовка</p>
         <p className="text-sm text-muted-foreground">
-          Игроков: {playerCount} · Поле {boardSize}×{boardSize}
+          Игроков: {playerCount} · Поле {boardRows}×{boardCols}
         </p>
       </div>
 

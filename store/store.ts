@@ -6,6 +6,7 @@ import {
   TRoom,
   TUser,
   BoardShift,
+  BoardRefreshAxis,
   BoardCharacter,
 } from "@/server/types";
 import { socket } from "@/lib/socket";
@@ -46,7 +47,8 @@ export type BoardShiftAnimation = {
   shift: BoardShift;
   boardBefore: BoardCharacter[];
   boardAfter: BoardCharacter[];
-  boardSize: number;
+  boardRows: number;
+  boardCols: number;
 };
 
 /** Локальный seq до ответа сервера */
@@ -228,6 +230,8 @@ class Store {
       this.animateShift(
         previousBoard,
         room.game.board,
+        room.game.boardRows,
+        room.game.boardCols,
         room.game.lastBoardShift ?? undefined,
       );
     }
@@ -311,15 +315,17 @@ class Store {
     if (isTurnActionUsed(this.room.game)) return;
     if (this.boardShiftAnim !== null) return;
 
+    const { boardRows, boardCols } = this.room.game;
     const boardBefore = this.room.game.board.map((c) => ({ ...c }));
     const boardAfter = shiftBoardCharacters(
       boardBefore,
-      this.room.game.boardSize,
+      boardRows,
+      boardCols,
       shift,
     );
 
     // Оптимистичная анимация до ответа сервера
-    this.animateShift(boardBefore, boardAfter, {
+    this.animateShift(boardBefore, boardAfter, boardRows, boardCols, {
       ...shift,
       seq: LOCAL_BOARD_SHIFT_SEQ,
     });
@@ -327,6 +333,18 @@ class Store {
     socket.emit(SocketEvents.ShiftBoard, {
       roomCode: this.room.roomCode,
       shift,
+    });
+  }
+
+  public refreshBoard(axis: BoardRefreshAxis) {
+    if (this.room === undefined) return;
+    if (!this.isMyTurn) return;
+    if (isTurnActionUsed(this.room.game)) return;
+    if (this.boardShiftAnim !== null) return;
+
+    socket.emit(SocketEvents.RefreshBoard, {
+      roomCode: this.room.roomCode,
+      axis,
     });
   }
 
@@ -364,12 +382,13 @@ class Store {
   public animateShift(
     boardBefore: BoardCharacter[],
     boardAfter: BoardCharacter[],
+    boardRows: number,
+    boardCols: number,
     knownShift?: BoardShift & { seq?: number },
   ) {
     if (boardsEqual(boardBefore, boardAfter)) return;
-
-    const boardSize = Math.sqrt(boardBefore.length);
-    if (!Number.isInteger(boardSize) || boardSize <= 0) return;
+    if (boardRows <= 0 || boardCols <= 0) return;
+    if (boardBefore.length !== boardRows * boardCols) return;
 
     // У инициатора уже крутится локальная анимация — только подтверждаем seq
     if (
@@ -388,7 +407,7 @@ class Store {
 
     const detected =
       knownShift ??
-      detectBoardShift(boardBefore, boardAfter, boardSize) ??
+      detectBoardShift(boardBefore, boardAfter, boardRows, boardCols) ??
       undefined;
 
     if (detected === undefined) return;
@@ -413,7 +432,8 @@ class Store {
       },
       boardBefore: boardBefore.map((c) => ({ ...c })),
       boardAfter: boardAfter.map((c) => ({ ...c })),
-      boardSize,
+      boardRows,
+      boardCols,
     };
   }
 

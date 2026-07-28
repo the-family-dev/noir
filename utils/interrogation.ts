@@ -8,7 +8,8 @@ import {
 
 export type ResolveInterrogationParams = {
   board: BoardCharacter[];
-  boardSize: number;
+  boardRows: number;
+  boardCols: number;
   assignments: Record<string, string>;
   /** sessionId шпиона, проводящего допрос */
   actorSessionId: string;
@@ -29,7 +30,8 @@ export function resolveInterrogation(
 ): ResolveInterrogationResult {
   const {
     board,
-    boardSize,
+    boardRows,
+    boardCols,
     assignments,
     actorSessionId,
     targetCharacterId,
@@ -47,11 +49,15 @@ export function resolveInterrogation(
     return { ok: false, reason: "target_missing" };
   }
 
-  if (!areAdjacentOrSame(actorIndex, targetIndex, boardSize)) {
+  if (!areAdjacentOrSame(actorIndex, targetIndex, boardRows, boardCols)) {
     return { ok: false, reason: "not_adjacent" };
   }
 
-  const neighborIndices = getNeighborIndices(targetIndex, boardSize);
+  const neighborIndices = getNeighborIndices(
+    targetIndex,
+    boardRows,
+    boardCols,
+  );
   const zoneCharacterIds = [
     targetCharacterId,
     ...neighborIndices.map((i) => board[i]!.id),
@@ -80,7 +86,8 @@ export function resolveInterrogation(
 /** Можно ли допросить эту карточку своим персонажем */
 export function canInterrogateTarget(
   board: BoardCharacter[],
-  boardSize: number,
+  boardRows: number,
+  boardCols: number,
   selfCharacterId: string | undefined,
   targetCharacterId: string,
 ): boolean {
@@ -90,5 +97,5 @@ export function canInterrogateTarget(
   const targetIndex = findCharacterIndex(board, targetCharacterId);
   if (selfIndex === -1 || targetIndex === -1) return false;
 
-  return areAdjacentOrSame(selfIndex, targetIndex, boardSize);
+  return areAdjacentOrSame(selfIndex, targetIndex, boardRows, boardCols);
 }

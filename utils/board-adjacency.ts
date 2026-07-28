@@ -12,15 +12,15 @@ const NEIGHBOR_OFFSETS: ReadonlyArray<readonly [number, number]> = [
   [1, 1],
 ];
 
-export function indexToCoord(index: number, size: number): {
-  row: number;
-  col: number;
-} {
-  return { row: Math.floor(index / size), col: index % size };
+export function indexToCoord(
+  index: number,
+  cols: number,
+): { row: number; col: number } {
+  return { row: Math.floor(index / cols), col: index % cols };
 }
 
-export function coordToIndex(row: number, col: number, size: number): number {
-  return row * size + col;
+export function coordToIndex(row: number, col: number, cols: number): number {
+  return row * cols + col;
 }
 
 export function findCharacterIndex(
@@ -31,19 +31,23 @@ export function findCharacterIndex(
 }
 
 /** Индексы соседних клеток (до 8), без выхода за край */
-export function getNeighborIndices(index: number, size: number): number[] {
-  if (size <= 0 || index < 0 || index >= size * size) return [];
+export function getNeighborIndices(
+  index: number,
+  rows: number,
+  cols: number,
+): number[] {
+  if (rows <= 0 || cols <= 0 || index < 0 || index >= rows * cols) return [];
 
-  const { row, col } = indexToCoord(index, size);
+  const { row, col } = indexToCoord(index, cols);
   const result: number[] = [];
 
   for (const [dr, dc] of NEIGHBOR_OFFSETS) {
     const nextRow = row + dr;
     const nextCol = col + dc;
-    if (nextRow < 0 || nextRow >= size || nextCol < 0 || nextCol >= size) {
+    if (nextRow < 0 || nextRow >= rows || nextCol < 0 || nextCol >= cols) {
       continue;
     }
-    result.push(coordToIndex(nextRow, nextCol, size));
+    result.push(coordToIndex(nextRow, nextCol, cols));
   }
 
   return result;
@@ -53,10 +57,11 @@ export function getNeighborIndices(index: number, size: number): number[] {
 export function areAdjacentOrSame(
   aIndex: number,
   bIndex: number,
-  size: number,
+  rows: number,
+  cols: number,
 ): boolean {
   if (aIndex === bIndex) return true;
-  return getNeighborIndices(aIndex, size).includes(bIndex);
+  return getNeighborIndices(aIndex, rows, cols).includes(bIndex);
 }
 
 /**

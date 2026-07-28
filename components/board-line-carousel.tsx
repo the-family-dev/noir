@@ -22,7 +22,8 @@ export type BoardLineCarouselProps = {
   orientation: "horizontal" | "vertical";
   line: BoardCharacter[];
   direction: BoardShift["direction"];
-  boardSize: number;
+  /** Число видимых клеток в линии (столбцов для строки / строк для столбца) */
+  lineLength: number;
   style: CSSProperties;
   renderCard: (character: BoardCharacter, key: string) => ReactNode;
   onComplete: () => void;
@@ -33,7 +34,7 @@ export function BoardLineCarousel({
   orientation,
   line,
   direction,
-  boardSize,
+  lineLength,
   style,
   renderCard,
   onComplete,
@@ -54,7 +55,7 @@ export function BoardLineCarousel({
       const { width, height } = el.getBoundingClientRect();
       const track = isHorizontal ? width : height;
       if (track <= 0) return;
-      const cell = (track - BOARD_GAP * (boardSize - 1)) / boardSize;
+      const cell = (track - BOARD_GAP * (lineLength - 1)) / lineLength;
       setStepPx(cell + BOARD_GAP);
     };
 
@@ -62,7 +63,7 @@ export function BoardLineCarousel({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [isHorizontal, boardSize]);
+  }, [isHorizontal, lineLength]);
 
   const startPx = stepOffset(direction, "start") * stepPx;
   const endPx = stepOffset(direction, "end") * stepPx;
@@ -85,11 +86,11 @@ export function BoardLineCarousel({
             gap: BOARD_GAP,
             ...(isHorizontal
               ? {
-                  width: stepPx * (boardSize + 1) - BOARD_GAP,
+                  width: stepPx * (lineLength + 1) - BOARD_GAP,
                   height: "100%",
                 }
               : {
-                  height: stepPx * (boardSize + 1) - BOARD_GAP,
+                  height: stepPx * (lineLength + 1) - BOARD_GAP,
                   width: "100%",
                 }),
           }}

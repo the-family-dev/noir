@@ -36,9 +36,11 @@ function resetTurnFlags(
     ...game,
     currentTurnSessionId,
     boardShiftUsedThisTurn: false,
+    boardRefreshUsedThisTurn: false,
     interrogateUsedThisTurn: false,
     catchUsedThisTurn: false,
     lastBoardShift: null,
+    lastBoardRefresh: null,
     lastInterrogation: null,
     lastCatch: null,
   };
@@ -47,16 +49,20 @@ function resetTurnFlags(
 export function createInitialNoirGameState(
   playerCount = 1,
 ): NoirGameState {
+  const size = boardSizeForPlayerCount(playerCount);
   return {
     phase: GamePhase.Preparation,
-    boardSize: boardSizeForPlayerCount(playerCount),
+    boardRows: size,
+    boardCols: size,
     board: [],
     assignments: {},
     currentTurnSessionId: null,
     boardShiftUsedThisTurn: false,
+    boardRefreshUsedThisTurn: false,
     interrogateUsedThisTurn: false,
     catchUsedThisTurn: false,
     lastBoardShift: null,
+    lastBoardRefresh: null,
     lastInterrogation: null,
     lastCatch: null,
   };
@@ -69,10 +75,10 @@ export function syncPreparationBoardSize(
 ): NoirGameState {
   if (game.phase !== GamePhase.Preparation) return game;
 
-  const boardSize = boardSizeForPlayerCount(playerCount);
-  if (game.boardSize === boardSize) return game;
+  const size = boardSizeForPlayerCount(playerCount);
+  if (game.boardRows === size && game.boardCols === size) return game;
 
-  return { ...game, boardSize };
+  return { ...game, boardRows: size, boardCols: size };
 }
 
 /**
@@ -97,14 +103,17 @@ export function buildPlayingGameState(
 
   return {
     phase: GamePhase.Playing,
-    boardSize,
+    boardRows: boardSize,
+    boardCols: boardSize,
     board,
     assignments,
     currentTurnSessionId: turnOrder[0] ?? null,
     boardShiftUsedThisTurn: false,
+    boardRefreshUsedThisTurn: false,
     interrogateUsedThisTurn: false,
     catchUsedThisTurn: false,
     lastBoardShift: null,
+    lastBoardRefresh: null,
     lastInterrogation: null,
     lastCatch: null,
   };
@@ -175,6 +184,9 @@ export function sanitizeRoomForSession(
       assignments: selfId ? { [sessionId]: selfId } : {},
       lastBoardShift: room.game.lastBoardShift
         ? { ...room.game.lastBoardShift }
+        : null,
+      lastBoardRefresh: room.game.lastBoardRefresh
+        ? { ...room.game.lastBoardRefresh }
         : null,
       lastInterrogation: room.game.lastInterrogation
         ? {

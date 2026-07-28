@@ -5,7 +5,8 @@ import { shuffle } from "@/utils/shuffle";
 
 export type ResolveCatchParams = {
   board: BoardCharacter[];
-  boardSize: number;
+  boardRows: number;
+  boardCols: number;
   assignments: Record<string, string>;
   actorSessionId: string;
   targetCharacterId: string;
@@ -41,7 +42,8 @@ export function resolveCatch(
 ): ResolveCatchResult {
   const {
     board,
-    boardSize,
+    boardRows,
+    boardCols,
     assignments,
     actorSessionId,
     targetCharacterId,
@@ -70,7 +72,8 @@ export function resolveCatch(
   if (
     !canInterrogateTarget(
       board,
-      boardSize,
+      boardRows,
+      boardCols,
       assignments[actorSessionId],
       targetCharacterId,
     )
@@ -129,7 +132,8 @@ export function resolveCatch(
 /** Можно ли поймать карточку (жива, рядом, и не своя личность) */
 export function canCatchTarget(
   board: BoardCharacter[],
-  boardSize: number,
+  boardRows: number,
+  boardCols: number,
   selfCharacterId: string | undefined,
   targetCharacterId: string,
 ): boolean {
@@ -142,7 +146,8 @@ export function canCatchTarget(
 
   return canInterrogateTarget(
     board,
-    boardSize,
+    boardRows,
+    boardCols,
     selfCharacterId,
     targetCharacterId,
   );

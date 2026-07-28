@@ -188,6 +188,21 @@ export function registerSocketHandlers(io: AppServer, socket: AppSocket): void {
     broadcastRoom(io, result.room);
   });
 
+  socket.on(SocketEvents.RefreshBoard, (params) => {
+    const result = roomService.refreshBoard({
+      roomCode: params.roomCode,
+      socketId: socket.id,
+      axis: params.axis,
+    });
+
+    if (!result.ok) {
+      emitError(socket, result);
+      return;
+    }
+
+    broadcastRoom(io, result.room);
+  });
+
   socket.on(SocketEvents.Interrogate, (params) => {
     const result = roomService.interrogate({
       roomCode: params.roomCode,

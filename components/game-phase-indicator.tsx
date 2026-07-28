@@ -16,7 +16,7 @@ export const GamePhaseIndicator = observer(function GamePhaseIndicator() {
   const { room } = store;
   if (room === undefined) return null;
 
-  const { phase, boardSize } = room.game;
+  const { phase, boardRows, boardCols } = room.game;
 
   return (
     <div className="flex flex-col items-center gap-1.5">
@@ -42,9 +42,9 @@ export const GamePhaseIndicator = observer(function GamePhaseIndicator() {
           );
         })}
       </div>
-      {phase === GamePhase.Preparation ? (
+      {phase === GamePhase.Preparation || phase === GamePhase.Playing ? (
         <p className="text-xs text-muted-foreground">
-          Поле {boardSize}×{boardSize}
+          Поле {boardRows}×{boardCols}
         </p>
       ) : null}
     </div>

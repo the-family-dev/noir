@@ -30,7 +30,8 @@ import { useState } from "react";
 
 export type BoardGridProps = {
   board: BoardCharacter[];
-  boardSize: number;
+  boardRows: number;
+  boardCols: number;
   selfCharacterId?: string;
   /** sessionId текущего игрока — себя в поимке выбирать нельзя */
   selfSessionId?: string;
@@ -170,7 +171,8 @@ function BoardActionCell({
 
 export function BoardGrid({
   board,
-  boardSize,
+  boardRows,
+  boardCols,
   selfCharacterId,
   selfSessionId,
   members,
@@ -230,19 +232,21 @@ export function BoardGrid({
     <div
       className="relative"
       style={{
-        width: "min(100cqw, calc(100cqh * 3 / 4))",
-        aspectRatio: "3 / 4",
+        width: "min(100cqw, calc(100cqh * var(--board-aspect)))",
+        aspectRatio: "var(--board-aspect)",
+        // Соотношение сторон с учётом гуттеров стрелок
+        ["--board-aspect" as string]: `${boardCols + 0.7} / ${boardRows + 0.7}`,
       }}
     >
       <div
         className="grid h-full w-full"
         style={{
           gap: BOARD_GAP,
-          gridTemplateColumns: `${gutter} repeat(${boardSize}, minmax(0, 1fr)) ${gutter}`,
-          gridTemplateRows: `${gutter} repeat(${boardSize}, minmax(0, 1fr)) ${gutter}`,
+          gridTemplateColumns: `${gutter} repeat(${boardCols}, minmax(0, 1fr)) ${gutter}`,
+          gridTemplateRows: `${gutter} repeat(${boardRows}, minmax(0, 1fr)) ${gutter}`,
         }}
       >
-        {Array.from({ length: boardSize }, (_, col) => (
+        {Array.from({ length: boardCols }, (_, col) => (
           <BoardShiftArrow
             key={`up-${col}`}
             enabled={canShift}
@@ -260,7 +264,7 @@ export function BoardGrid({
           </BoardShiftArrow>
         ))}
 
-        {Array.from({ length: boardSize }, (_, row) => (
+        {Array.from({ length: boardRows }, (_, row) => (
           <div key={`row-wrap-${row}`} className="contents">
             <BoardShiftArrow
               enabled={canShift}
@@ -281,18 +285,18 @@ export function BoardGrid({
               <BoardLineCarousel
                 key={`row-anim-${animating.seq}-${row}`}
                 orientation="horizontal"
-                line={getLineCharacters(board, boardSize, animating)}
+                line={getLineCharacters(board, boardRows, boardCols, animating)}
                 direction={animating.direction}
-                boardSize={boardSize}
+                lineLength={boardCols}
                 style={{
-                  gridColumn: `2 / span ${boardSize}`,
+                  gridColumn: `2 / span ${boardCols}`,
                   gridRow: row + 2,
                 }}
                 renderCard={renderCard}
                 onComplete={onAnimComplete}
               />
             ) : (
-              Array.from({ length: boardSize }, (_, col) => {
+              Array.from({ length: boardCols }, (_, col) => {
                 if (animCol === col) {
                   return (
                     <div
@@ -305,7 +309,7 @@ export function BoardGrid({
                     />
                   );
                 }
-                const character = board[row * boardSize + col]!;
+                const character = board[row * boardCols + col]!;
                 return (
                   <div
                     key={character.id}
@@ -323,7 +327,7 @@ export function BoardGrid({
 
             <BoardShiftArrow
               enabled={canShift}
-              style={{ gridColumn: boardSize + 2, gridRow: row + 2 }}
+              style={{ gridColumn: boardCols + 2, gridRow: row + 2 }}
               label="Сдвинуть строку вправо"
               onClick={() =>
                 onShift({
@@ -342,23 +346,23 @@ export function BoardGrid({
           <BoardLineCarousel
             key={`col-anim-${animating.seq}-${animCol}`}
             orientation="vertical"
-            line={getLineCharacters(board, boardSize, animating)}
+            line={getLineCharacters(board, boardRows, boardCols, animating)}
             direction={animating.direction}
-            boardSize={boardSize}
+            lineLength={boardRows}
             style={{
               gridColumn: animCol + 2,
-              gridRow: `2 / span ${boardSize}`,
+              gridRow: `2 / span ${boardRows}`,
             }}
             renderCard={renderCard}
             onComplete={onAnimComplete}
           />
         ) : null}
 
-        {Array.from({ length: boardSize }, (_, col) => (
+        {Array.from({ length: boardCols }, (_, col) => (
           <BoardShiftArrow
             key={`down-${col}`}
             enabled={canShift}
-            style={{ gridColumn: col + 2, gridRow: boardSize + 2 }}
+            style={{ gridColumn: col + 2, gridRow: boardRows + 2 }}
             label="Сдвинуть столбец вниз"
             onClick={() =>
               onShift({

@@ -15,6 +15,7 @@ export enum SocketEvents {
   StartGame = "start-game",
   EndTurn = "end-turn",
   ShiftBoard = "shift-board",
+  RefreshBoard = "refresh-board",
   Interrogate = "interrogate",
   CatchSuspect = "catch-suspect",
 
@@ -81,6 +82,8 @@ export type BoardCharacter = {
 
 export type BoardShiftAxis = "row" | "column";
 export type BoardShiftDirection = "positive" | "negative";
+/** Ось обновления поля: сомкнуть по строкам или по столбцам */
+export type BoardRefreshAxis = "row" | "column";
 
 export type BoardShift = {
   axis: BoardShiftAxis;
@@ -113,8 +116,10 @@ export type BoardCatch = {
 
 export type NoirGameState = {
   phase: GamePhase;
-  /** Длина стороны квадратного поля (например, 5 → 5×5) */
-  boardSize: number;
+  /** Число строк поля */
+  boardRows: number;
+  /** Число столбцов поля */
+  boardCols: number;
   /** Карточки на поле; пусто на подготовке */
   board: BoardCharacter[];
   /**
@@ -126,12 +131,16 @@ export type NoirGameState = {
   currentTurnSessionId: string | null;
   /** Сдвиг поля уже сделан в этом ходу */
   boardShiftUsedThisTurn: boolean;
+  /** Обновление поля уже сделано в этом ходу */
+  boardRefreshUsedThisTurn: boolean;
   /** Допрос уже сделан в этом ходу */
   interrogateUsedThisTurn: boolean;
   /** Поимка уже сделана в этом ходу */
   catchUsedThisTurn: boolean;
   /** Последний сдвиг — для анимации у клиентов */
   lastBoardShift: (BoardShift & { seq: number }) | null;
+  /** Последнее обновление поля */
+  lastBoardRefresh: { axis: BoardRefreshAxis; seq: number } | null;
   /** Последний допрос — результат виден всем до конца хода */
   lastInterrogation: BoardInterrogation | null;
   /** Последняя попытка поймать — результат виден всем до конца хода */
@@ -172,6 +181,10 @@ export type ClientToServerEvents = {
   [SocketEvents.ShiftBoard]: (params: {
     roomCode: string;
     shift: BoardShift;
+  }) => void;
+  [SocketEvents.RefreshBoard]: (params: {
+    roomCode: string;
+    axis: BoardRefreshAxis;
   }) => void;
   [SocketEvents.Interrogate]: (params: {
     roomCode: string;
