@@ -36,6 +36,8 @@ type TLoginForm = {
 type TChat = {
   inputMessage: string;
   messages: TMessage[];
+  /** Панель чата развёрнута поверх поля */
+  isOpen: boolean;
 };
 
 /** Активная анимация сдвига поля */
@@ -62,6 +64,7 @@ class Store {
   chat: TChat = {
     inputMessage: "",
     messages: [],
+    isOpen: false,
   };
 
   private _nameStorage = new TypedStorage<string | undefined>(
@@ -178,6 +181,14 @@ class Store {
 
   public setChatMessage(message: string) {
     this.chat.inputMessage = message;
+  }
+
+  public setChatOpen(isOpen: boolean) {
+    this.chat.isOpen = isOpen;
+  }
+
+  public toggleChat() {
+    this.chat.isOpen = !this.chat.isOpen;
   }
 
   public sendMessage() {
@@ -515,6 +526,7 @@ class Store {
     return {
       inputMessage: "",
       messages: [],
+      isOpen: false,
     };
   }
 }

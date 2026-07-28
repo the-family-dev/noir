@@ -25,6 +25,8 @@ import {
   CrosshairIcon,
   SearchIcon,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 export type BoardGridProps = {
   board: BoardCharacter[];
@@ -58,6 +60,114 @@ function CharacterNameBadge({ name }: { name: string }) {
   );
 }
 
+type BoardActionCellProps = {
+  character: BoardCharacter;
+  selfCharacterId?: string;
+  highlight: CharacterCardHighlight;
+  canInterrogate: boolean;
+  canCatch: boolean;
+  catchCandidates: TUser[];
+  onInterrogate: (targetCharacterId: string) => void;
+  onCatch: (targetCharacterId: string, accusedSessionId: string) => void;
+};
+
+/** Карточка с меню действий; эффект наведения держится, пока меню открыто */
+function BoardActionCell({
+  character,
+  selfCharacterId,
+  highlight,
+  canInterrogate,
+  canCatch,
+  catchCandidates,
+  onInterrogate,
+  onCatch,
+}: BoardActionCellProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const isActionable = canInterrogate || canCatch;
+
+  return (
+    <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            className={cn(
+              "h-full w-full min-h-0 min-w-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              isActionable && "cursor-pointer",
+            )}
+            aria-label={`Действия: ${character.name}`}
+          />
+        }
+      >
+        <CharacterCard
+          character={character}
+          isSelf={character.id === selfCharacterId}
+          highlight={highlight}
+          isActionable={isActionable}
+          isActionActive={isActionable && menuOpen}
+          className="h-full w-full"
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="center"
+        side="bottom"
+        className="w-auto min-w-max"
+      >
+        <DropdownMenuItem
+          disabled={!canInterrogate}
+          className="whitespace-nowrap"
+          onClick={() => {
+            if (!canInterrogate) return;
+            onInterrogate(character.id);
+          }}
+        >
+          <SearchIcon />
+          <span className="whitespace-nowrap">
+            Допросить <CharacterNameBadge name={character.name} />
+          </span>
+        </DropdownMenuItem>
+
+        {canCatch ? (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="whitespace-nowrap">
+              <CrosshairIcon />
+              <span className="whitespace-nowrap">
+                Поймать <CharacterNameBadge name={character.name} />
+              </span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-auto min-w-max">
+              {catchCandidates.map((member) => (
+                <DropdownMenuItem
+                  key={member.sessionId}
+                  className="whitespace-nowrap"
+                  onClick={() => {
+                    onCatch(character.id, member.sessionId);
+                  }}
+                >
+                  <span className="whitespace-nowrap">
+                    это{" "}
+                    <span className="rounded bg-sky-500/20 px-1.5 py-0.5 font-semibold text-sky-300 group-focus/dropdown-menu-item:text-sky-300 group-data-highlighted/dropdown-menu-item:text-sky-300">
+                      {member.name}
+                    </span>
+                    ?
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        ) : (
+          <DropdownMenuItem disabled className="whitespace-nowrap">
+            <CrosshairIcon />
+            <span className="whitespace-nowrap">
+              Поймать <CharacterNameBadge name={character.name} />
+            </span>
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function BoardGrid({
   board,
   boardSize,
@@ -80,96 +190,39 @@ export function BoardGrid({
   const animRow = animating?.axis === "row" ? animating.index : null;
   const catchCandidates = members.filter((m) => m.sessionId !== selfSessionId);
 
-  const renderCard = (character: BoardCharacter, key: string) => (
-    <CharacterCard
-      key={key}
-      character={character}
-      isSelf={character.id === selfCharacterId}
-      highlight={highlightById.get(character.id) ?? "none"}
-      className="h-full w-full"
-    />
-  );
-
-  const renderCell = (character: BoardCharacter) => {
-    const card = renderCard(character, character.id);
-
-    if (!canOpenCardMenu) {
-      return card;
-    }
-
-    const canInterrogate = interrogatableIds.has(character.id);
-    const canCatch = catchableIds.has(character.id);
+  const renderCard = (character: BoardCharacter, key: string) => {
+    const isActionable =
+      canOpenCardMenu &&
+      (interrogatableIds.has(character.id) || catchableIds.has(character.id));
 
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <button
-              type="button"
-              className="h-full w-full min-h-0 min-w-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label={`Действия: ${character.name}`}
-            />
-          }
-        >
-          {card}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="center"
-          side="bottom"
-          className="w-auto min-w-max"
-        >
-          <DropdownMenuItem
-            disabled={!canInterrogate}
-            className="whitespace-nowrap"
-            onClick={() => {
-              if (!canInterrogate) return;
-              onInterrogate(character.id);
-            }}
-          >
-            <SearchIcon />
-            <span className="whitespace-nowrap">
-              Допросить <CharacterNameBadge name={character.name} />
-            </span>
-          </DropdownMenuItem>
+      <CharacterCard
+        key={key}
+        character={character}
+        isSelf={character.id === selfCharacterId}
+        highlight={highlightById.get(character.id) ?? "none"}
+        isActionable={isActionable}
+        className="h-full w-full"
+      />
+    );
+  };
 
-          {canCatch ? (
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger className="whitespace-nowrap">
-                <CrosshairIcon />
-                <span className="whitespace-nowrap">
-                  Поймать <CharacterNameBadge name={character.name} />
-                </span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-auto min-w-max">
-                {catchCandidates.map((member) => (
-                  <DropdownMenuItem
-                    key={member.sessionId}
-                    className="whitespace-nowrap"
-                    onClick={() => {
-                      onCatch(character.id, member.sessionId);
-                    }}
-                  >
-                    <span className="whitespace-nowrap">
-                      это{" "}
-                      <span className="rounded bg-sky-500/20 px-1.5 py-0.5 font-semibold text-sky-300 group-focus/dropdown-menu-item:text-sky-300 group-data-highlighted/dropdown-menu-item:text-sky-300">
-                        {member.name}
-                      </span>
-                      ?
-                    </span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          ) : (
-            <DropdownMenuItem disabled className="whitespace-nowrap">
-              <CrosshairIcon />
-              <span className="whitespace-nowrap">
-                Поймать <CharacterNameBadge name={character.name} />
-              </span>
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+  const renderCell = (character: BoardCharacter) => {
+    if (!canOpenCardMenu) {
+      return renderCard(character, character.id);
+    }
+
+    return (
+      <BoardActionCell
+        character={character}
+        selfCharacterId={selfCharacterId}
+        highlight={highlightById.get(character.id) ?? "none"}
+        canInterrogate={interrogatableIds.has(character.id)}
+        canCatch={catchableIds.has(character.id)}
+        catchCandidates={catchCandidates}
+        onInterrogate={onInterrogate}
+        onCatch={onCatch}
+      />
     );
   };
 

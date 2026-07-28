@@ -64,8 +64,8 @@ export default observer(function Game() {
   const isPreparation = room.game.phase === GamePhase.Preparation;
 
   return (
-    <div className="flex flex-row gap-4 h-full w-full min-h-0 relative">
-      <div className="flex-1 min-w-0 flex items-center justify-center">
+    <div className="relative h-full w-full min-h-0">
+      <div className="flex h-full w-full min-w-0 items-center justify-center">
         {isPreparation ? <StartGamePanel /> : <GameBoard />}
       </div>
       <Chat />

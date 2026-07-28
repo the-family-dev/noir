@@ -10,12 +10,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { observer } from "mobx-react-lite";
-import { MoreVerticalIcon, LogOutIcon, CopyIcon, LinkIcon } from "lucide-react";
+import {
+  MoreVerticalIcon,
+  LogOutIcon,
+  CopyIcon,
+  LinkIcon,
+  MessageCircleIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { RoomParticipantsList } from "@/components/room-participants-list";
 
 export const RoomActions = observer(function RoomActions() {
-  const { room } = store;
+  const { room, chat } = store;
 
   if (room === undefined) return null;
 
@@ -43,6 +49,18 @@ export const RoomActions = observer(function RoomActions() {
 
   return (
     <div className="flex flex-row gap-2 items-center">
+      <Button
+        type="button"
+        variant="secondary"
+        size="icon"
+        data-chat-toggle
+        aria-label={chat.isOpen ? "Свернуть чат" : "Открыть чат"}
+        aria-pressed={chat.isOpen}
+        onClick={() => store.toggleChat()}
+      >
+        <MessageCircleIcon className="size-5" />
+      </Button>
+      <RoomParticipantsList />
       <DropdownMenu>
         <DropdownMenuTrigger
           render={<Button variant="secondary" size="icon" aria-label="Меню" />}
@@ -71,7 +89,6 @@ export const RoomActions = observer(function RoomActions() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <RoomParticipantsList />
     </div>
   );
 });

@@ -174,7 +174,7 @@ export const GameBoard = observer(function GameBoard() {
   })();
 
   return (
-    <div className="relative flex h-full min-h-0 w-full max-w-3xl flex-col items-center gap-4">
+    <div className="relative flex h-full min-h-0 w-full max-w-6xl flex-col items-center gap-4">
       <div
         className="relative flex min-h-0 w-full flex-1 items-center justify-center"
         style={{ containerType: "size" }}
