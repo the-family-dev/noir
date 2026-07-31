@@ -11,23 +11,13 @@ import { socket } from "@/lib/socket";
 import { TypedStorage } from "@/utils/storage";
 import {
   activeRoomCodeStorageKey,
-  END_TURN_REVEAL_MS,
   nameStorageKey,
   sessionIdStorageKey,
 } from "@/utils/constants";
 import { isTurnActionUsed } from "@/utils/turn-action";
 import { usePathname, useRouter } from "next/navigation";
-import { ChatStore } from "@/store/chat-store";
-
-export enum LoginType {
-  Join = "join",
-  Create = "create",
-}
-
-type TLoginForm = {
-  roomCode: string;
-  type: LoginType;
-};
+import { ChatStore } from "@/stores/chat-store";
+import { LoginFormStore } from "@/stores/login-form-store";
 
 function createSessionId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -37,7 +27,8 @@ function createSessionId(): string {
 }
 
 class Store {
-  loginForm: TLoginForm = this._getLoginFormDefaultState();
+  /** Вложенный стор формы входа */
+  loginForm = new LoginFormStore();
   /** Вложенный стор чата комнаты */
   chat = new ChatStore(this);
 
@@ -64,18 +55,13 @@ class Store {
   suppressAutoJoin = false;
   /** true, пока ждём ответ сокета на создание/вход в комнату */
   isEnteringRoom = false;
-  /**
-   * Timestamp, до которого локально блокируется «Завершить ход»
-   * (только у игрока, сделавшего действие).
-   */
-  endTurnCooldownUntil: number | null = null;
 
   router: ReturnType<typeof useRouter> | undefined = undefined;
   pathname: ReturnType<typeof usePathname> | undefined = undefined;
 
   constructor() {
-    // chat уже observable-класс — не оборачиваем повторно
-    makeAutoObservable(this, { chat: false });
+    // вложенные сторы уже observable — не оборачиваем повторно
+    makeAutoObservable(this, { chat: false, loginForm: false });
   }
 
   get isAdmin() {
@@ -148,22 +134,10 @@ class Store {
     this.userName = name;
   }
 
-  public setLoginFormField<K extends keyof TLoginForm>(
-    field: K,
-    value: TLoginForm[K],
-  ) {
-    this.loginForm[field] = value;
-  }
-
   public setRoom(room: TRoom) {
     this.room = room;
     this.isEnteringRoom = false;
     this._activeRoomCodeStorage.set(room.roomCode);
-
-    // Чужой ход — локальный кулдаун больше не нужен
-    if (!this.isMyTurn) {
-      this.endTurnCooldownUntil = null;
-    }
   }
 
   public setEnteringRoom(value: boolean) {
@@ -182,7 +156,6 @@ class Store {
   public clearActiveRoom() {
     this.room = undefined;
     this.chat.reset();
-    this.endTurnCooldownUntil = null;
     this._activeRoomCodeStorage.remove();
   }
 
@@ -231,28 +204,10 @@ class Store {
     if (this.room === undefined) return;
     if (!this.isMyTurn) return;
     if (!isTurnActionUsed(this.room.game)) return;
-    if (this.isEndTurnOnCooldown) return;
 
-    this.endTurnCooldownUntil = null;
     socket.emit(SocketEvents.EndTurn, {
       roomCode: this.room.roomCode,
     });
-  }
-
-  /** Локальная пауза, чтобы все успели увидеть результат действия */
-  public startEndTurnCooldown() {
-    this.endTurnCooldownUntil = Date.now() + END_TURN_REVEAL_MS;
-  }
-
-  public clearEndTurnCooldown() {
-    this.endTurnCooldownUntil = null;
-  }
-
-  get isEndTurnOnCooldown(): boolean {
-    return (
-      this.endTurnCooldownUntil !== null &&
-      Date.now() < this.endTurnCooldownUntil
-    );
   }
 
   public shiftBoard(shift: BoardShift) {
@@ -260,7 +215,6 @@ class Store {
     if (!this.isMyTurn) return;
     if (isTurnActionUsed(this.room.game)) return;
 
-    this.startEndTurnCooldown();
     socket.emit(SocketEvents.ShiftBoard, {
       roomCode: this.room.roomCode,
       shift,
@@ -272,7 +226,6 @@ class Store {
     if (!this.isMyTurn) return;
     if (isTurnActionUsed(this.room.game)) return;
 
-    this.startEndTurnCooldown();
     socket.emit(SocketEvents.RefreshBoard, {
       roomCode: this.room.roomCode,
       axis,
@@ -284,7 +237,6 @@ class Store {
     if (!this.isMyTurn) return;
     if (isTurnActionUsed(this.room.game)) return;
 
-    this.startEndTurnCooldown();
     socket.emit(SocketEvents.Interrogate, {
       roomCode: this.room.roomCode,
       targetCharacterId,
@@ -298,7 +250,6 @@ class Store {
     if (accusedSessionId === this.sessionId) return;
     if (isTurnActionUsed(this.room.game)) return;
 
-    this.startEndTurnCooldown();
     socket.emit(SocketEvents.CatchSuspect, {
       roomCode: this.room.roomCode,
       targetCharacterId,
@@ -398,13 +349,6 @@ class Store {
       userName,
       sessionId,
     });
-  }
-
-  private _getLoginFormDefaultState(): TLoginForm {
-    return {
-      roomCode: "",
-      type: LoginType.Join,
-    };
   }
 }
 

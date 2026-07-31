@@ -2,7 +2,7 @@
 
 import { observer } from "mobx-react-lite";
 import { GamePhase } from "@/server/types";
-import { store } from "@/store/store";
+import { store } from "@/stores/store";
 import { GAME_PHASE_LABELS } from "@/utils/noir-game";
 import { cn } from "@/lib/utils";
 

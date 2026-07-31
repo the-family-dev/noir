@@ -1,6 +1,6 @@
 "use client";
 
-import { store } from "@/store/store";
+import { store } from "@/stores/store";
 import { Button } from "@/components/ui/button";
 import { FormEvent, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";

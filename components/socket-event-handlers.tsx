@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect } from "react";
 import { RoomErrorCode, SocketEvents } from "@/server/types";
 import { socket } from "@/lib/socket";
-import { store } from "@/store/store";
+import { store } from "@/stores/store";
 import { toast } from "sonner";
 
 export const SocketEventsHandler = observer(function SocketEventsHandler() {

@@ -1,4 +1,4 @@
-import { store } from "@/store/store";
+import { store } from "@/stores/store";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,

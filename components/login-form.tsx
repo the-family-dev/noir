@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LoginType, store } from "@/store/store";
+import { store } from "@/stores/store";
+import { LoginType } from "@/stores/login-form-store";
 
 export const LoginForm = observer(() => {
-  const { userName, loginForm, isEnteringRoom } = store;
-  const { roomCode, type } = loginForm;
+  const { userName, isEnteringRoom } = store;
+  const { roomCode, type } = store.loginForm;
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -39,7 +40,7 @@ export const LoginForm = observer(() => {
       <Tabs
         value={type}
         onValueChange={(key) =>
-          store.setLoginFormField("type", key as LoginType)
+          store.loginForm.setField("type", key as LoginType)
         }
       >
         <TabsList className="w-full">
@@ -73,7 +74,7 @@ export const LoginForm = observer(() => {
               id="roomCode"
               value={roomCode}
               onChange={(e) =>
-                store.setLoginFormField("roomCode", e.target.value)
+                store.loginForm.setField("roomCode", e.target.value)
               }
               placeholder="Код комнаты"
               disabled={isEnteringRoom}

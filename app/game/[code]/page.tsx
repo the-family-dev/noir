@@ -5,7 +5,7 @@ import { StartGamePanel } from "@/components/start-game-panel";
 import { observer } from "mobx-react-lite";
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
-import { store } from "@/store/store";
+import { store } from "@/stores/store";
 import { Button } from "@/components/ui/button";
 import { GamePhase } from "@/server/types";
 

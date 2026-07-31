@@ -4,7 +4,7 @@ import { observer } from "mobx-react-lite";
 import { TUser } from "@/server/types";
 import { CrownIcon, UserXIcon, WifiOffIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { store } from "@/store/store";
+import { store } from "@/stores/store";
 import { cn } from "@/lib/utils";
 
 export type RoomUserCardProps = {

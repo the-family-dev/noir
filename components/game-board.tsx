@@ -3,14 +3,12 @@
 import { BoardGrid } from "@/components/board-grid";
 import { CatchReveal } from "@/components/catch-reveal";
 import { CharacterCardHighlight } from "@/components/character-card";
-import {
-  EndTurnButton,
-  RefreshBoardButton,
-} from "@/components/current-turn-controls";
+import { EndTurnButton } from "@/components/end-turn-button";
+import { RefreshBoardButton } from "@/components/refresh-board-button";
 import { InterrogationReveal } from "@/components/interrogation-reveal";
 import { ShiftReveal } from "@/components/shift-reveal";
 import { BoardShift } from "@/server/types";
-import { store } from "@/store/store";
+import { store } from "@/stores/store";
 import { getLineCharacters } from "@/utils/board-shift";
 import { canCatchTarget } from "@/utils/catch";
 import { canInterrogateTarget } from "@/utils/interrogation";

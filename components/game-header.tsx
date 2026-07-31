@@ -3,7 +3,7 @@ import { observer } from "mobx-react-lite";
 import { RoomActions } from "./room-actions";
 import { GamePhaseIndicator } from "./game-phase-indicator";
 import { CurrentTurnIndicator } from "./current-turn-controls";
-import { store } from "@/store/store";
+import { store } from "@/stores/store";
 import { GamePhase } from "@/server/types";
 
 export const GameHeader = observer(() => {

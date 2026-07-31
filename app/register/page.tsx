@@ -1,5 +1,5 @@
 "use client";
-import { store } from "@/store/store";
+import { store } from "@/stores/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { observer } from "mobx-react-lite";

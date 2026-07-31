@@ -9,7 +9,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { UsersIcon } from "lucide-react";
-import { store } from "@/store/store";
+import { store } from "@/stores/store";
 
 export const RoomParticipantsList = observer(function RoomParticipantsList() {
   const { room } = store;

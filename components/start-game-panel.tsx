@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { observer } from "mobx-react-lite";
-import { store } from "@/store/store";
+import { store } from "@/stores/store";
 import { MIN_PLAYERS_TO_START } from "@/utils/noir-game";
 import { PlayIcon } from "lucide-react";
 

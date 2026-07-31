@@ -3,7 +3,7 @@ import { observer } from "mobx-react-lite";
 import { useRouter } from "next/navigation";
 import { LoginForm } from "@/components/login-form";
 import { Button } from "@/components/ui/button";
-import { store } from "@/store/store";
+import { store } from "@/stores/store";
 
 export default observer(function Home() {
   const router = useRouter();
