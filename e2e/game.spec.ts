@@ -51,6 +51,29 @@ async function findTurnPage(pages: Page[]): Promise<Page> {
   throw new Error("Ни один игрок не получил ход");
 }
 
+/** Чат и тайная личность живут в боковой панели, которая выезжает справа. */
+async function openSidePanel(page: Page, name: "Чат" | "Ваша тайная личность") {
+  await page.getByRole("button", { name, exact: true }).click();
+}
+
+async function closeSidePanel(page: Page) {
+  await page.getByRole("button", { name: "Закрыть панель" }).click();
+}
+
+/** Панель тайной личности скрыта по умолчанию и открывается кнопкой поверх поля. */
+async function expectSecretIdentityPanel(page: Page) {
+  const title = page.getByText("Ваша тайная личность");
+
+  await expect(title).toBeHidden();
+
+  await openSidePanel(page, "Ваша тайная личность");
+  await expect(title).toBeVisible();
+  await expect(page.getByText("Трофеи", { exact: true })).toBeVisible();
+
+  await closeSidePanel(page);
+  await expect(title).toBeHidden();
+}
+
 test.describe("Шпионские игры", () => {
   test("лобби, старт партии и первый ход", async ({ browser }) => {
     const admin = await openHome(browser);
@@ -101,17 +124,29 @@ test.describe("Шпионские игры", () => {
 
     await expect(startButton).toBeEnabled();
 
-    // Чат работает до старта партии
+    // Чат работает до старта партии: панель открывается кнопкой поверх поля
+    await expect(admin.page.getByPlaceholder("Сообщение")).toBeHidden();
+
+    await openSidePanel(admin.page, "Чат");
     await admin.page.getByPlaceholder("Сообщение").fill("Всем привет");
     await admin.page.getByPlaceholder("Сообщение").press("Enter");
+
+    await expect(second.page.getByText("Всем привет")).toBeHidden();
+
+    await openSidePanel(second.page, "Чат");
     await expect(second.page.getByText("Всем привет")).toBeVisible();
+
+    await closeSidePanel(second.page);
+    await closeSidePanel(admin.page);
+
+    await expect(admin.page.getByPlaceholder("Сообщение")).toBeHidden();
 
     await startButton.click();
 
     const pages = [admin.page, second.page, third.page];
 
     for (const page of pages) {
-      await expect(page.getByText("Ваша тайная личность")).toBeVisible();
+      await expectSecretIdentityPanel(page);
       await expect(page.getByText("Хроника партии")).toBeVisible();
       await expect(page.getByRole("button", { name: /Поймать шпиона/ })).toBeVisible();
     }
@@ -285,7 +320,7 @@ test.describe("Шпионские игры", () => {
     await startButton.click();
 
     for (const page of [second.page, third.page, fourth.page]) {
-      await expect(page.getByText("Ваша тайная личность")).toBeVisible();
+      await expectSecretIdentityPanel(page);
       await expect(page.getByText("Хроника партии")).toBeVisible();
     }
 

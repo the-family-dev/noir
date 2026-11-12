@@ -1,5 +1,6 @@
+"use client";
 import { store } from "@/store/store";
-import { Button, Form, Input, ScrollShadow, Surface } from "@heroui/react";
+import { Button, Form, Input, ScrollShadow } from "@heroui/react";
 import { SendIcon } from "lucide-react";
 import { observer } from "mobx-react-lite";
 import { FormEvent } from "react";
@@ -16,13 +17,10 @@ export const Chat = observer(() => {
   };
 
   return (
-    <Surface
-      variant="transparent"
-      className="rounded border p-4 flex flex-col gap-4 w-75 h-full"
-    >
-      <div>Чат</div>
-      <ScrollShadow className="h-full" hideScrollBar>
-        <div className="flex flex-col gap-2 flex-1 justify-end">
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="pr-10 font-semibold">Чат</div>
+      <ScrollShadow className="min-h-0 flex-1" hideScrollBar>
+        <div className="flex min-h-full flex-col justify-end gap-2">
           {messages.map((message, index) => {
             return <Message key={index} message={message} />;
           })}
@@ -44,7 +42,7 @@ export const Chat = observer(() => {
           <SendIcon />
         </Button>
       </Form>
-    </Surface>
+    </div>
   );
 });
 

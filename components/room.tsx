@@ -7,14 +7,12 @@ import { useState } from "react";
 import { GamePhase } from "@/server/types";
 import { getRoomInviteUrl } from "@/utils/room-link";
 import { UsersList } from "./users-list";
-import { Chat } from "./chat";
-import { MyUser } from "./my-user";
 import { LobbyPanel } from "./lobby-panel";
 import { GameBoard } from "./game-board";
 import { GameLog } from "./game-log";
 import { GameOver } from "./game-over";
 import { InterrogationPanel } from "./interrogation-panel";
-import { SecretIdentity } from "./secret-identity";
+import { RoomSidePanel } from "./room-side-panel";
 
 export const Room = observer(() => {
   const { room, game } = store;
@@ -40,8 +38,8 @@ export const Room = observer(() => {
 
   return (
     <>
-      <MyUser />
-      <div className="flex h-full w-full flex-row gap-6">
+      <RoomSidePanel />
+      <div className="flex h-full w-full flex-row gap-6 p-1">
         <Surface
           variant="transparent"
           className="flex h-full w-75 flex-col gap-4 overflow-y-auto rounded border p-4"
@@ -73,17 +71,13 @@ export const Room = observer(() => {
           </div>
         </Surface>
 
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto">
+        {/* pr-8 keeps the field clear of the floating panel buttons */}
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto pr-8">
           {game === undefined && <LobbyPanel />}
           {isPlaying && <GameBoard />}
           {isPlaying && <InterrogationPanel />}
           {isFinished && <GameOver />}
           {game !== undefined && <GameLog />}
-        </div>
-
-        <div className="flex w-75 flex-col gap-4">
-          {game !== undefined && <SecretIdentity />}
-          <Chat />
         </div>
       </div>
     </>

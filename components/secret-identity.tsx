@@ -1,5 +1,5 @@
 "use client";
-import { Chip, Surface } from "@heroui/react";
+import { Chip } from "@heroui/react";
 import { observer } from "mobx-react-lite";
 import { TrophyIcon } from "lucide-react";
 import { store } from "@/store/store";
@@ -19,13 +19,10 @@ export const SecretIdentity = observer(function SecretIdentity() {
       : 0;
 
   return (
-    <Surface
-      variant="transparent"
-      className="flex w-full flex-col gap-3 rounded border p-4"
-    >
-      <div className="flex flex-row items-center justify-between">
+    <div className="flex w-full flex-col gap-3">
+      <div className="flex flex-row items-center justify-between gap-2 pr-8">
         <div className="font-semibold">Ваша тайная личность</div>
-        <TrophyIcon className="size-4 text-amber-500" />
+        <TrophyIcon className="size-4 shrink-0 text-amber-500" />
       </div>
 
       {hasIdentity ? (
@@ -71,6 +68,6 @@ export const SecretIdentity = observer(function SecretIdentity() {
           ))}
         </div>
       )}
-    </Surface>
+    </div>
   );
 });

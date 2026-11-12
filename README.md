@@ -24,6 +24,13 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - A guest opens the link, types a name (it is remembered in `localStorage`) and lands in the room — the code comes from the URL.
 - Short links work too: `/<code>` and the older `/game/<code>` redirect to `/room/<code>` (`/game` itself goes home).
 
+## Room layout
+
+- The left column holds the room code, the invite link button and the player list with trophies; the game takes the rest of the width.
+- Chat and «Ваша тайная личность» live in a slide-over panel on the right (`components/room-side-panel.tsx`). The toggle buttons float over the playing field in the middle of the right edge; the panel is closed by default, slides in on click, and is closed by the ✕ button or a click on the backdrop.
+- While the panel is closed it is `invisible`, so its content is neither clickable nor reachable with the keyboard.
+- The board is centred in its column; a card is 100×108 px (`cellWidth` / `cellHeight` in `components/game-board.tsx`), and the row/column shift arrows are centred both horizontally and vertically in their cells.
+
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
@@ -48,7 +55,7 @@ npm run test:e2e                 # headless run
 npm run test:e2e:ui              # interactive UI mode
 ```
 
-Playwright starts the dev server itself (`npm run dev`) on http://localhost:3000 (set `PORT` to override) and reuses an already running one locally. The specs in `e2e/` walk through: create a room → two players join → room code and player list are synced → the start button is gated by the player count → start the game → the turn player shifts a row (others are locked out) → the next player interrogates a suspect → a handover of the creator rights when the admin leaves → a notification is shown for a non-existent room code → the code field accepts any formatting and pasted invite URLs → the invite link `/room/<code>` opens the room, the copied URL matches it, a guest joins with a name only, and the legacy `/game/<code>` address redirects.
+Playwright starts the dev server itself (`npm run dev`) on http://localhost:3000 (set `PORT` to override) and reuses an already running one locally. The specs in `e2e/` walk through: create a room → two players join → room code and player list are synced → the start button is gated by the player count → the chat panel is opened from a floating button and a message reaches the other player (the panel is hidden until the button is pressed) → start the game → the secret identity panel is opened and closed by its button → the turn player shifts a row (others are locked out) → the next player interrogates a suspect → a handover of the creator rights when the admin leaves → a notification is shown for a non-existent room code → the code field accepts any formatting and pasted invite URLs → the invite link `/room/<code>` opens the room, the copied URL matches it, a guest joins with a name only, and the legacy `/game/<code>` address redirects.
 
 ## Game rules implemented
 
