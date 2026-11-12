@@ -153,9 +153,9 @@ app.prepare().then(() => {
     socket.on(SocketEvents.CreateRoom, (userName) => {
       console.log(SocketEvents.CreateRoom, userName);
 
-      let roomCode = generateCode(4);
+      let roomCode = generateCode();
       while (rooms.has(roomCode)) {
-        roomCode = generateCode(4);
+        roomCode = generateCode();
       }
 
       const room: TRoom = {

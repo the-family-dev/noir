@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { isValidRoomCode } from "@/utils/code-generaator";
 import { getRoomPath, normalizeRoomCode } from "@/utils/room-link";
 
 type TProps = {
@@ -14,8 +15,8 @@ export default async function ShortRoomLinkPage({ params }: TProps) {
   const roomCode = normalizeRoomCode(code);
 
   // Статические маршруты (/game, /room) Next разбирает раньше этого файла,
-  // поэтому сюда попадают только «лишние» адреса: код — это 4 буквы
-  if (!/^[a-z]{4}$/.test(roomCode)) notFound();
+  // поэтому сюда попадают только «лишние» адреса
+  if (!isValidRoomCode(roomCode)) notFound();
 
   redirect(getRoomPath(roomCode));
 }

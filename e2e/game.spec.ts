@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
+import { ROOM_CODE_LENGTH } from "../utils/code-generaator";
 
-const roomTitlePattern = /^Комната\s+[a-z]{4}$/;
+const roomTitlePattern = new RegExp(`^Комната\\s+[a-z]{${ROOM_CODE_LENGTH}}$`);
+const codePattern = new RegExp(`^[a-z]{${ROOM_CODE_LENGTH}}$`);
 
 async function openHome(browser: Browser): Promise<{
   context: BrowserContext;
@@ -27,19 +29,15 @@ async function createRoom(page: Page, name: string): Promise<string> {
 
   const code = ((await roomTitle.textContent()) ?? "").trim().split(/\s+/)[1];
 
-  expect(code).toMatch(/^[a-z]{4}$/);
+  expect(code).toMatch(codePattern);
 
   return code;
 }
 
 async function joinRoom(page: Page, name: string, code: string) {
   await page.getByPlaceholder("Имя пользователя").fill(name);
-
-  const otpInput = page.locator("input[data-input-otp]");
-
-  await otpInput.click();
-  await page.keyboard.type(code, { delay: 40 });
-  await expect(otpInput).toHaveValue(code);
+  await page.getByPlaceholder("Код комнаты").fill(code);
+  await expect(page.getByPlaceholder("Код комнаты")).toHaveValue(code);
 
   await page.getByRole("button", { name: "Присоединиться", exact: true }).click();
   await expect(page.getByText(roomTitlePattern).first()).toBeVisible();
@@ -162,19 +160,43 @@ test.describe("Шпионские игры", () => {
 
   test("несуществующая комната показывает уведомление", async ({ browser }) => {
     const guest = await openHome(browser);
+    const missingCode = "z".repeat(ROOM_CODE_LENGTH);
 
     await guest.page.getByPlaceholder("Имя пользователя").fill("Гость");
-
-    const otpInput = guest.page.locator("input[data-input-otp]");
-
-    await otpInput.click();
-    await guest.page.keyboard.type("0000", { delay: 40 });
+    await guest.page.getByPlaceholder("Код комнаты").fill(missingCode);
     await guest.page
       .getByRole("button", { name: "Присоединиться", exact: true })
       .click();
 
-    await expect(guest.page.getByText("Комната «0000» не найдена")).toBeVisible();
+    await expect(
+      guest.page.getByText(`Комната «${missingCode}» не найдена`),
+    ).toBeVisible();
     await expect(guest.page.getByPlaceholder("Имя пользователя")).toBeVisible();
+
+    await guest.context.close();
+  });
+
+  test("код комнаты вводится обычным полем", async ({ browser }) => {
+    const guest = await openHome(browser);
+    const codeInput = guest.page.getByPlaceholder("Код комнаты");
+    const joinButton = guest.page.getByRole("button", {
+      name: "Присоединиться",
+      exact: true,
+    });
+
+    // Неполный код — запрос не отправляется
+    await codeInput.fill("ab");
+    await expect(codeInput).toHaveValue("ab");
+    await expect(joinButton).toBeDisabled();
+
+    // Регистр и посторонние символы отбрасываются на вводе
+    await codeInput.fill("ABCD-zz!!");
+    await expect(codeInput).toHaveValue("abcdzz");
+    await expect(joinButton).toBeEnabled();
+
+    // Вставленная ссылка-приглашение тоже превращается в код
+    await codeInput.fill("http://localhost:3000/room/abcdef?from=chat#top");
+    await expect(codeInput).toHaveValue("abcdef");
 
     await guest.context.close();
   });

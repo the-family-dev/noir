@@ -5,13 +5,17 @@ import {
   Button,
   Form,
   Input,
-  InputOTP,
   Label,
   Surface,
   Tabs,
   TextField,
 } from "@heroui/react";
 import { LoginType, store } from "@/store/store";
+import {
+  isValidRoomCode,
+  ROOM_CODE_LENGTH,
+  sanitizeRoomCode,
+} from "@/utils/code-generaator";
 
 export const LoginForm = observer(() => {
   const { userName, roomCode, type } = store.loginForm;
@@ -61,23 +65,33 @@ export const LoginForm = observer(() => {
         </TextField>
         {type === LoginType.Join ? (
           <div className="flex flex-col gap-2">
-            <Label>Код комнаты</Label>
-            <InputOTP
-              className="self-center"
-              maxLength={4}
-              value={roomCode}
-              onChange={(value) => store.setLoginFormField("roomCode", value)}
-            >
-              <InputOTP.Group>
-                <InputOTP.Slot index={0} />
-                <InputOTP.Slot index={1} />
-                <InputOTP.Slot index={2} />
-                <InputOTP.Slot index={3} />
-              </InputOTP.Group>
-            </InputOTP>
+            <TextField variant="secondary" name="roomCode" type="text">
+              <Label>Код комнаты</Label>
+              <Input
+                value={roomCode}
+                onChange={(e) =>
+                  store.setLoginFormField(
+                    "roomCode",
+                    sanitizeRoomCode(e.target.value),
+                  )
+                }
+                placeholder="Код комнаты"
+                variant="secondary"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </TextField>
+            <div className="text-xs text-neutral-500">
+              {ROOM_CODE_LENGTH} букв — код есть в ссылке-приглашении
+            </div>
           </div>
         ) : null}
-        <Button className={"w-full"} type="submit">
+        <Button
+          className={"w-full"}
+          type="submit"
+          isDisabled={type === LoginType.Join && !isValidRoomCode(roomCode)}
+        >
           {type === LoginType.Join ? "Присоединиться" : "Создать"}
         </Button>
       </Form>

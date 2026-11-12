@@ -15,5 +15,5 @@ export function getRoomPath(roomCode: string): string {
 
 /** Абсолютная ссылка-приглашение: её и отправляют друзьям */
 export function getRoomInviteUrl(roomCode: string, origin: string): string {
-  return `${origin}${getRoomPath(roomCode)}`;
+  return `${origin.replace(/\/+$/, "")}${getRoomPath(roomCode)}`;
 }
