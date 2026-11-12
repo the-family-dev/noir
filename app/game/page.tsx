@@ -1,6 +1,6 @@
-"use client";
-import { observer } from "mobx-react-lite";
+import { redirect } from "next/navigation";
 
-export default observer(function Game() {
-  return <div>Game</div>;
-});
+/** Отдельной страницы /game больше нет: вход и комнаты живут на / и /room/<код> */
+export default function GamePage() {
+  redirect("/");
+}

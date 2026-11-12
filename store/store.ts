@@ -10,7 +10,6 @@ import {
 } from "@/server/types";
 import { socket } from "@/lib/socket";
 import { TypedStorage } from "../utils/storage";
-import { useRouter } from "next/navigation";
 
 export enum LoginType {
   Join = "join",
@@ -63,8 +62,6 @@ class Store {
 
   user: TUser | undefined = undefined;
 
-  router: ReturnType<typeof useRouter> | undefined = undefined;
-
   constructor() {
     makeAutoObservable(this);
   }
@@ -103,7 +100,18 @@ class Store {
     return this.me?.trophies ?? [];
   }
 
-  public getStoredName() {}
+  /** Имя, с которым игрок заходил в прошлый раз: подставляется в формы */
+  public getStoredName(): string {
+    const name = this._nameStorage.get();
+
+    return typeof name === "string" ? name : "";
+  }
+
+  public saveName(name: string) {
+    if (name.trim() === "") return;
+
+    this._nameStorage.set(name.trim());
+  }
 
   public setLoginFormField<K extends keyof TLoginForm>(
     field: K,
@@ -142,10 +150,6 @@ class Store {
     this.room = room;
   }
 
-  public setRouter(router: ReturnType<typeof useRouter>) {
-    this.router = router;
-  }
-
   public setUser(user: TUser) {
     this.user = user;
   }
@@ -166,8 +170,14 @@ class Store {
     );
   }
 
-  public joinRoom() {
-    const { userName, roomCode } = this.loginForm;
+  /**
+   * @param roomCode код комнаты: по умолчанию берётся из формы входа, а со
+   * страницы ссылки-приглашения передаётся из адреса
+   */
+  public joinRoom(roomCode = this.loginForm.roomCode) {
+    const { userName } = this.loginForm;
+
+    this.saveName(userName);
 
     socket.emit(SocketEvents.JoinRoom, {
       userName,
@@ -179,6 +189,8 @@ class Store {
 
   public async createRoom() {
     const { userName } = this.loginForm;
+
+    this.saveName(userName);
 
     socket.emit(SocketEvents.CreateRoom, userName);
 

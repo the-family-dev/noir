@@ -41,7 +41,7 @@ async function joinRoom(page: Page, name: string, code: string) {
   await page.keyboard.type(code, { delay: 40 });
   await expect(otpInput).toHaveValue(code);
 
-  await page.getByRole("button", { name: "Присоедениться", exact: true }).click();
+  await page.getByRole("button", { name: "Присоединиться", exact: true }).click();
   await expect(page.getByText(roomTitlePattern).first()).toBeVisible();
 }
 
@@ -170,13 +170,65 @@ test.describe("Шпионские игры", () => {
     await otpInput.click();
     await guest.page.keyboard.type("0000", { delay: 40 });
     await guest.page
-      .getByRole("button", { name: "Присоедениться", exact: true })
+      .getByRole("button", { name: "Присоединиться", exact: true })
       .click();
 
     await expect(guest.page.getByText("Комната «0000» не найдена")).toBeVisible();
     await expect(guest.page.getByPlaceholder("Имя пользователя")).toBeVisible();
 
     await guest.context.close();
+  });
+
+  test("ссылка-приглашение открывает комнату напрямую", async ({ browser }) => {
+    const admin = await openHome(browser);
+    const code = await createRoom(admin.page, "Админ");
+
+    // После создания комнаты адрес сам становится ссылкой-приглашением
+    await expect(admin.page).toHaveURL(new RegExp(`/room/${code}$`));
+
+    await admin.context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await admin.page.getByRole("button", { name: "Скопировать ссылку" }).click();
+
+    const inviteUrl = await admin.page.evaluate(() =>
+      navigator.clipboard.readText(),
+    );
+    const origin = new URL(admin.page.url()).origin;
+
+    expect(inviteUrl).toBe(`${origin}/room/${code}`);
+
+    // Приглашённому остаётся ввести только имя: код берётся из адреса
+    const guestContext = await browser.newContext();
+    const guest = await guestContext.newPage();
+
+    await guest.goto(inviteUrl);
+    await expect(guest.getByTestId("invite-room-code")).toHaveText(code);
+
+    await guest.getByPlaceholder("Имя пользователя").fill("Гость");
+    await guest.getByRole("button", { name: "Присоединиться" }).click();
+
+    await expect(guest.getByText(roomTitlePattern).first()).toBeVisible();
+    await expect(admin.page.getByText("Участников: 2")).toBeVisible();
+    await expect(admin.page.getByText("Гость", { exact: true })).toBeVisible();
+
+    // Старые ссылки вида /game/<код> ведут на новый адрес
+    await guest.goto(`/game/${code}`);
+    await expect(guest).toHaveURL(new RegExp(`/room/${code}$`));
+    await expect(guest.getByTestId("invite-room-code")).toHaveText(code);
+
+    // Короткая ссылка /<код> тоже открывает комнату
+    await guest.goto(`/${code}`);
+    await expect(guest).toHaveURL(new RegExp(`/room/${code}$`));
+    await expect(guest.getByTestId("invite-room-code")).toHaveText(code);
+
+    // Имя запомнилось: после повторного открытия ссылки хватает одной кнопки
+    await guest.goto(`/room/${code}`);
+    await expect(guest.getByPlaceholder("Имя пользователя")).toHaveValue("Гость");
+    await expect(
+      guest.getByRole("button", { name: "Присоединиться" }),
+    ).toBeEnabled();
+
+    await admin.context.close();
+    await guestContext.close();
   });
 
   test("права создателя переходят, когда админ покидает комнату", async ({

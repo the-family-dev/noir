@@ -1,17 +1,24 @@
 "use client";
 import { observer } from "mobx-react-lite";
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { SocketEvents } from "@/server/types";
 import { socket } from "@/lib/socket";
 import { store } from "../store/store";
+import { getRoomPath } from "@/utils/room-link";
 
 export const SocketEventsHandler = observer(function SocketEventsHandler() {
-  console.log("socket handler rendered");
+  const router = useRouter();
+
   useEffect(() => {
     socket.on(SocketEvents.RoomCreated, (room) => {
       console.log(SocketEvents.RoomCreated, room);
 
       store.setRoom(room);
+
+      // Адрес комнаты становится ссылкой-приглашением: её можно скопировать
+      // и отправить друзьям, а не диктовать код
+      router.replace(getRoomPath(room.roomCode));
     });
 
     socket.on(SocketEvents.RoomUpdated, (room) => {
@@ -51,7 +58,7 @@ export const SocketEventsHandler = observer(function SocketEventsHandler() {
       socket.off(SocketEvents.RoomNotFound);
       socket.off(SocketEvents.RoomError);
     };
-  }, []);
+  }, [router]);
 
   return null;
 });

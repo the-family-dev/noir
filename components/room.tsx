@@ -1,8 +1,11 @@
 "use client";
 import { store } from "@/store/store";
-import { Surface } from "@heroui/react";
+import { Button, Surface } from "@heroui/react";
 import { observer } from "mobx-react-lite";
+import { CheckIcon, LinkIcon } from "lucide-react";
+import { useState } from "react";
 import { GamePhase } from "@/server/types";
+import { getRoomInviteUrl } from "@/utils/room-link";
 import { UsersList } from "./users-list";
 import { Chat } from "./chat";
 import { MyUser } from "./my-user";
@@ -15,8 +18,22 @@ import { SecretIdentity } from "./secret-identity";
 
 export const Room = observer(() => {
   const { room, game } = store;
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
 
   if (room === undefined) return null;
+
+  const copyInviteLink = async () => {
+    const inviteUrl = getRoomInviteUrl(room.roomCode, window.location.origin);
+
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setIsLinkCopied(true);
+      store.notify("Ссылка на комнату скопирована", "success");
+      window.setTimeout(() => setIsLinkCopied(false), 2000);
+    } catch {
+      store.notify(`Скопируйте ссылку вручную: ${inviteUrl}`, "warning");
+    }
+  };
 
   const isPlaying = game?.phase === GamePhase.Playing;
   const isFinished = game?.phase === GamePhase.Finished;
@@ -29,9 +46,26 @@ export const Room = observer(() => {
           variant="transparent"
           className="flex h-full w-75 flex-col gap-4 overflow-y-auto rounded border p-4"
         >
-          <div className="text-lg font-semibold">Комната {room.roomCode}</div>
-          <div className="text-xs text-neutral-500">
-            Передайте код друзьям, чтобы они присоединились к партии.
+          <div className="flex flex-col gap-2">
+            <div className="text-lg font-semibold">
+              Комната {room.roomCode}
+            </div>
+            <div className="text-xs text-neutral-500">
+              Отправьте друзьям ссылку — они откроют комнату и подключатся, введя
+              только имя.
+            </div>
+            <Button
+              variant="secondary"
+              className="w-full"
+              onPress={copyInviteLink}
+            >
+              {isLinkCopied ? (
+                <CheckIcon className="size-4" />
+              ) : (
+                <LinkIcon className="size-4" />
+              )}
+              {isLinkCopied ? "Ссылка скопирована" : "Скопировать ссылку"}
+            </Button>
           </div>
           <UsersList users={room.users} />
           <div className="mt-auto text-xs text-neutral-500">
