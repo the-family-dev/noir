@@ -1,37 +1,58 @@
+"use client";
 import { store } from "@/store/store";
 import { Surface } from "@heroui/react";
 import { observer } from "mobx-react-lite";
+import { GamePhase } from "@/server/types";
 import { UsersList } from "./users-list";
 import { Chat } from "./chat";
 import { MyUser } from "./my-user";
-import { PersonaCard } from "./persona-card";
-import { MyCard } from "./my-card";
-
-const field = Array(36).fill(0);
+import { LobbyPanel } from "./lobby-panel";
+import { GameBoard } from "./game-board";
+import { GameLog } from "./game-log";
+import { GameOver } from "./game-over";
+import { InterrogationPanel } from "./interrogation-panel";
+import { SecretIdentity } from "./secret-identity";
 
 export const Room = observer(() => {
-  const { room } = store;
+  const { room, game } = store;
 
   if (room === undefined) return null;
 
+  const isPlaying = game?.phase === GamePhase.Playing;
+  const isFinished = game?.phase === GamePhase.Finished;
+
   return (
-    <div className="flex flex-row gap-8 h-full">
+    <>
       <MyUser />
-      <Surface
-        variant="transparent"
-        className="rounded border p-4 flex flex-col gap-4 w-75"
-      >
-        <div>Комната {room.roomCode}</div>
-        <UsersList users={room.users} />
-      </Surface>
+      <div className="flex h-full w-full flex-row gap-6">
+        <Surface
+          variant="transparent"
+          className="flex h-full w-75 flex-col gap-4 overflow-y-auto rounded border p-4"
+        >
+          <div className="text-lg font-semibold">Комната {room.roomCode}</div>
+          <div className="text-xs text-neutral-500">
+            Передайте код друзьям, чтобы они присоединились к партии.
+          </div>
+          <UsersList users={room.users} />
+          <div className="mt-auto text-xs text-neutral-500">
+            Участников: {room.users.length}
+          </div>
+        </Surface>
 
-      <div className="grid grid-cols-6 gap-2 h-fit">
-        {field.map((_, index) => (
-          <MyCard key={index} />
-        ))}
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto">
+          {game === undefined && <LobbyPanel />}
+          {isPlaying && <GameBoard />}
+          {isPlaying && <InterrogationPanel />}
+          {isFinished && <GameOver />}
+          {game !== undefined && <GameLog />}
+        </div>
+
+        <div className="flex w-75 flex-col gap-4">
+          {game !== undefined && <SecretIdentity />}
+          <Chat />
+        </div>
       </div>
-
-      <Chat />
-    </div>
+    </>
   );
 });
+

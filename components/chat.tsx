@@ -5,6 +5,7 @@ import { observer } from "mobx-react-lite";
 import { FormEvent } from "react";
 import { TMessage } from "../server/types";
 import classNames from "classnames";
+import { UserAvatar } from "./user-avatar";
 
 export const Chat = observer(() => {
   const { inputMessage, messages } = store.chat;
@@ -69,7 +70,12 @@ const Message = observer<{ message: TMessage }>((props) => {
         {message.content}
       </div>
       {isMyMessage ? null : (
-        <div className={"text-xs self-start text-neutral-400"}>
+        <div
+          className={
+            "flex flex-row items-center gap-1.5 self-start text-xs text-neutral-400"
+          }
+        >
+          <UserAvatar name={message.sender.name} size="xs" />
           {message.sender.name}
         </div>
       )}

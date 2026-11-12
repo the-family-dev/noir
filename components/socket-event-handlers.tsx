@@ -14,6 +14,10 @@ export const SocketEventsHandler = observer(function SocketEventsHandler() {
       store.setRoom(room);
     });
 
+    socket.on(SocketEvents.RoomUpdated, (room) => {
+      store.setRoom(room);
+    });
+
     socket.on(SocketEvents.ReciveMessage, (message) => {
       store.reciveMessage(message);
     });
@@ -29,10 +33,26 @@ export const SocketEventsHandler = observer(function SocketEventsHandler() {
       store.setRoom(room);
     });
 
+    socket.on(SocketEvents.RoomNotFound, (roomCode) => {
+      store.notify(`Комната «${roomCode}» не найдена`, "danger");
+    });
+
+    socket.on(SocketEvents.RoomError, (message) => {
+      store.notify(message, "danger");
+    });
+
     return () => {
       console.log("socket handler unmounted");
+      socket.off(SocketEvents.RoomCreated);
+      socket.off(SocketEvents.RoomUpdated);
+      socket.off(SocketEvents.ReciveMessage);
+      socket.off(SocketEvents.MyUserJoined);
+      socket.off(SocketEvents.UserJoined);
+      socket.off(SocketEvents.RoomNotFound);
+      socket.off(SocketEvents.RoomError);
     };
   }, []);
 
   return null;
 });
+
